@@ -15,24 +15,46 @@ $\text{Reward}(s,a,s')=10$ if $s'=-2$; $50$ if $s'=+2$; $-5$ otherwise.
 \question{Give $V^\star_i(s)$ for every $s$ after iterations $i=1,2$ (with $V^\star_0\equiv0$, and $V^\star_i=0$ at end states).}
 \expect{All 10 values.}
 \begin{solution}
+Each iteration applies $V^\star_i(s)=\max_a\sum_{s'}T(s'\mid s,a)\bigl[\text{Reward}(s,a,s')+V^\star_{i-1}(s')\bigr]$
+($\gamma=1$) to the non-end states.
+
+\textbf{Iteration 1} ($V^\star_0\equiv0$):
+\begin{itemize}[nosep]
+  \item $s=-1$: $Q(a_1)=0.8(10)+0.2(-5)=7$, \ $Q(a_2)=0.7(10)+0.3(-5)=5.5$ \ $\Rightarrow V^\star_1(-1)=7$
+  \item $s=0$: $Q(a_1)=0.8(-5)+0.2(-5)=-5$, \ $Q(a_2)=0.7(-5)+0.3(-5)=-5$ \ $\Rightarrow V^\star_1(0)=-5$
+  \item $s=+1$: $Q(a_1)=0.8(-5)+0.2(50)=6$, \ $Q(a_2)=0.7(-5)+0.3(50)=11.5$ \ $\Rightarrow V^\star_1(1)=11.5$
+\end{itemize}
+\textbf{Iteration 2} (using $V^\star_1$):
+\begin{itemize}[nosep]
+  \item $s=-1$: $Q(a_1)=0.8(10+0)+0.2(-5-5)=6$, \ $Q(a_2)=0.7(10)+0.3(-10)=4$ \ $\Rightarrow V^\star_2(-1)=6$
+  \item $s=0$: $Q(a_1)=0.8(-5+7)+0.2(-5+11.5)=2.9$, \ $Q(a_2)=0.7(2)+0.3(6.5)=3.35$ \ $\Rightarrow V^\star_2(0)=3.35$
+  \item $s=+1$: $Q(a_1)=0.8(-5-5)+0.2(50+0)=2$, \ $Q(a_2)=0.7(-10)+0.3(50)=8$ \ $\Rightarrow V^\star_2(1)=8$
+\end{itemize}
 \begin{center}
 \begin{tabular}{lccccc}
 \toprule
  & $s=-2$ & $s=-1$ & $s=0$ & $s=+1$ & $s=+2$\\
 \midrule
-$V^\star_1$ & \todo{} & \todo{} & \todo{} & \todo{} & \todo{}\\
-$V^\star_2$ & \todo{} & \todo{} & \todo{} & \todo{} & \todo{}\\
+$V^\star_1$ & 0 & 7 & $-5$ & 11.5 & 0\\
+$V^\star_2$ & 0 & 6 & 3.35 & 8 & 0\\
 \bottomrule
 \end{tabular}
 \end{center}
-\todo{show the Q-value computations}
 \end{solution}
 
 \problempart{1b}{Optimal policy}
 \question{Using $V^\star_2$, what is $\pi^\star(s)$ for each non-end state?}
 \expect{$\pi^\star(s)$ for $s\in\{-1,0,+1\}$.}
 \begin{solution}
-\todo{answer}
+Taking $\arg\max_a Q(s,a)$ with $Q$ computed from $V^\star_2$:
+\begin{itemize}[nosep]
+  \item $s=-1$: $Q(a_1)=0.8(10)+0.2(-5+3.35)=7.67$, \ $Q(a_2)=0.7(10)+0.3(-1.65)=6.505$ \ $\Rightarrow\pi^\star(-1)=a_1$
+  \item $s=0$: $Q(a_1)=0.8(-5+6)+0.2(-5+8)=1.4$, \ $Q(a_2)=0.7(1)+0.3(3)=1.6$ \ $\Rightarrow\pi^\star(0)=a_2$
+  \item $s=+1$: $Q(a_1)=0.8(-1.65)+0.2(50)=8.68$, \ $Q(a_2)=0.7(-1.65)+0.3(50)=13.845$ \ $\Rightarrow\pi^\star(1)=a_2$
+\end{itemize}
+So $\pi^\star(-1)=a_1$, $\pi^\star(0)=a_2$, $\pi^\star(+1)=a_2$. Near the left end the sure reward of $10$ is worth
+taking, while from $0$ and $+1$ it pays to gamble on reaching $+50$. This matches the policy our
+\texttt{value\_iteration} code returns for this MDP (grader test \texttt{3a-0-basic}).
 \end{solution}
 
 % ----------------------------------------------------------------------------
@@ -45,33 +67,132 @@ $\text{Reward}'(s,a,s')$ so that $V_{\text{opt}}(s)$ is unchanged for every $s\i
 \expect{$T'$ and $\text{Reward}'$ as formulas, followed by a short verification that the optimal-value
 recurrences coincide. Use the notation of the question.}
 \begin{solution}
-\todo{answer}
+Interpret the discount as a probability $1-\gamma$ of the episode ending at every step: make $o$ an absorbing end
+state ($\text{IsEnd}(o)$, so $V'_{\text{opt}}(o)=0$) and, for $s\in\text{States}$ (assuming $0<\gamma<1$),
+\[
+T'(s'\mid s,a)=
+\begin{cases}\gamma\,T(s'\mid s,a) & s'\in\text{States}\\ 1-\gamma & s'=o\end{cases}
+\]
+\[
+\text{Reward}'(s,a,s')=
+\begin{cases}\dfrac{\text{Reward}(s,a,s')}{\gamma} & s'\in\text{States}\\[4pt] 0 & s'=o.\end{cases}
+\]
+$T'$ is a valid distribution because $\gamma\sum_{s'}T(s'\mid s,a)+(1-\gamma)=1$.
+\emph{Verification.} For any non-end $s\in\text{States}$, the optimal values of the new MDP satisfy
+\begin{align*}
+V'_{\text{opt}}(s)
+&=\max_{a}\Bigl[\sum_{s'\in\text{States}}\gamma\,T(s'\mid s,a)\Bigl(\tfrac{\text{Reward}(s,a,s')}{\gamma}+V'_{\text{opt}}(s')\Bigr)
+  +(1-\gamma)\bigl(0+V'_{\text{opt}}(o)\bigr)\Bigr]\\
+&=\max_{a}\sum_{s'\in\text{States}}T(s'\mid s,a)\bigl[\text{Reward}(s,a,s')+\gamma\,V'_{\text{opt}}(s')\bigr],
+\end{align*}
+using $V'_{\text{opt}}(o)=0$. This is exactly the Bellman optimality equation of the original MDP, and end states
+of the original MDP keep value $0$ in both. For $\gamma<1$ that equation has a unique solution (the Bellman
+operator is a contraction), so $V'_{\text{opt}}(s)=V_{\text{opt}}(s)$ for all $s\in\text{States}$, and the optimal
+policies coincide. (Equivalently, one may keep $\text{Reward}'=\text{Reward}$ on $\text{States}$ and set
+$\text{Reward}'(s,a,o)=\sum_{s'}T(s'\mid s,a)\,\text{Reward}(s,a,s')$; this avoids dividing by $\gamma$.)
 \end{solution}
 
 % ----------------------------------------------------------------------------
 \subsection{Value iteration on Mountain Car}
 \codepart{4.3a--4.3b}
-\texttt{value\_iteration} and \texttt{ModelBasedMonteCarlo}.
+\texttt{value\_iteration} and \texttt{ModelBasedMonteCarlo}. All 11 points of grader tests \texttt{3a}/\texttt{3b} pass,
+and the hidden speed test ($n=500$) runs in 2.6\,s (limit 14\,s).
+
+\paragraph{How the experiments were run.} \texttt{scripts/mountaincar\_experiments.py} uses exactly the
+configurations of \texttt{train.py}: a 20$\times$20 discretisation for value iteration and tabular Q-learning, and
+Fourier features ($m=5$, scale $[1,15]$) for function approximation, with discount $0.999$ and episodes of at most 1000
+steps. Each configuration is trained for 1000 episodes and then evaluated for 500 greedy episodes. We seed each of
+the three trials so that the figures and numbers below are reproducible, and we count an evaluation episode as
+successful when it ends in the goal state rather than at the time limit.
 
 \problempart{3c}{Model-based value iteration: results}
-\question{Run \texttt{python train.py --agent value-iteration} (three trials). Comment on the reward plots, and
+\question{Run \texttt{python train.py -{}-agent value-iteration} (three trials). Comment on the reward plots, and
 discuss when model-based value iteration can perform poorly in general.}
 \expect{The plots, plus 2--3 sentences describing them and when the method may fail.}
 \begin{solution}
-\todo{include figures/04\_mountaincar/mcvi\_*.png and discuss}
+\begin{figure}[H]\centering
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/mcvi_1.png}\hfill
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/mcvi_2.png}\hfill
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/mcvi_3.png}
+  \caption{Model-based value iteration, trials 1--3 (blue: training episodes, green: greedy evaluation episodes;
+  lines are 30-episode moving averages).}
+\end{figure}
+\begin{center}\small
+\begin{tabular}{cccc}
+\toprule
+trial & train mean (last 100 ep.) & eval mean $\pm$ std & eval episodes reaching the goal\\
+\midrule
+1 & $-238.5$ & $-128.8\pm76.1$ & 495/500\\
+2 & $-240.3$ & $-147.8\pm71.5$ & 495/500\\
+3 & $-232.1$ & $-130.1\pm76.9$ & 495/500\\
+\bottomrule
+\end{tabular}
+\end{center}
+All three trials show the same staircase. For the first $\approx100$ episodes the agent acts randomly and never reaches
+the flag (reward $\approx-750$, the 1000-step time limit). The reward then jumps up twice, at episodes $\approx100$
+and $\approx200$: these are exactly the moments value iteration runs (every $10^5$ steps, and each failed episode
+lasts 1000 steps) and installs a new policy built from the estimated model. After the second solve, training rewards
+plateau around $-235$. They stay noisy because the agent still explores with probability $0.5$, and the policy is
+fixed between solves. The greedy evaluation is much better ($\approx-130$, goal reached in 495/500 episodes), with
+rewards falling into a few bands that correspond to the different discretised start positions.
+
+Model-based value iteration can perform poorly when the model it estimates is wrong or incomplete. That happens when
+the state space is large or continuous (many state--action pairs are visited rarely or never, so $\hat T,\hat R$ are
+estimated from very few samples), when the discretisation hides relevant information so that the ``discrete MDP'' is
+not really Markov, when exploration does not reach important regions (states never visited get no policy), and when
+the environment is non-stationary so that old counts mislead the model. It is also expensive: every re-solve costs a
+full value iteration over all states.
 \end{solution}
 
 % ----------------------------------------------------------------------------
 \subsection{Q-learning Mountain Car}
 \codepart{4.4a--4.4c}
-\texttt{TabularQLearning}, \texttt{fourier\_feature\_extractor}, \texttt{FunctionApproxQLearning}.
+\texttt{TabularQLearning}, \texttt{fourier\_feature\_extractor}, \texttt{FunctionApproxQLearning}. All 23 points of
+grader tests \texttt{4a}--\texttt{4c} pass.
 
 \problempart{4d}{Tabular vs.\ function approximation}
-\question{Run \texttt{train.py --agent tabular} and \texttt{--agent function-approximation}. Compare the plots.
+\question{Run \texttt{train.py -{}-agent tabular} and \texttt{-{}-agent function-approximation}. Compare the plots.
 Tabular Q-learning is expected to do better on this task. Why might that be?}
 \expect{The plots, plus 2--3 sentences comparing the two and giving possible reasons.}
 \begin{solution}
-\todo{include figures/04\_mountaincar/tabular\_*.png, fapprox\_*.png and discuss}
+\begin{figure}[H]\centering
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/tabular_1.png}\hfill
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/tabular_2.png}\hfill
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/tabular_3.png}\\[4pt]
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/fapprox_1.png}\hfill
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/fapprox_2.png}\hfill
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/fapprox_3.png}
+  \caption{Top: tabular Q-learning; bottom: function-approximation Q-learning (Fourier features); trials 1--3.}
+\end{figure}
+\begin{center}\small
+\begin{tabular}{lcccc}
+\toprule
+agent & trial & train mean (last 100) & eval mean $\pm$ std & eval goal reached\\
+\midrule
+tabular & 1 & $-228.4$ & $-193.8\pm37.7$ & 500/500\\
+tabular & 2 & $-240.7$ & $-268.8\pm161.0$ & 446/500\\
+tabular & 3 & $-198.8$ & $-159.2\pm3.2$ & 500/500\\
+\midrule
+function approx. & 1 & $-375.5$ & $-367.3\pm50.3$ & 500/500\\
+function approx. & 2 & $-694.4$ & $-697.6\pm18.9$ & 0/500\\
+function approx. & 3 & $-321.8$ & $-360.3\pm132.4$ & 484/500\\
+\bottomrule
+\end{tabular}
+\end{center}
+Returns are discounted ($\gamma=0.999$) and all runs are seeded with the trial number
+(\texttt{scripts/mountaincar\_experiments.py}). Tabular Q-learning is clearly better here. Its evaluation returns
+lie between $-159$ and $-269$, and two trials reach the goal in every evaluation episode. Function approximation
+reaches $-360$ at best and is far less reliable: trial~2 never learns to escape the valley at all. Its curve stays
+flat near $-700$, which is the discounted return of a 1000-step timeout. Two reasons fit what we see:
+\begin{itemize}
+  \item \textbf{Approximation error.} The 36 Fourier basis functions (\texttt{max\_coeff}$=5$) can only represent
+  a smooth Q-function. The true one has a sharp edge between states that have enough energy to crest the hill and
+  states that do not. The $20\times20$ table has 400 independent cells and can represent that edge, and with only a
+  2-D state space, $\epsilon$-greedy exploration visits nearly all of them in 1000 episodes.
+  \item \textbf{Interference.} Every Fourier feature is global, so each semi-gradient update changes Q-values
+  everywhere, and learning in one region can undo learning in another. Q-learning with function approximation has
+  no convergence guarantee, which explains the large differences between trials.
+\end{itemize}
 \end{solution}
 
 \problempart{4e}{When function approximation wins}
@@ -79,7 +200,13 @@ Tabular Q-learning is expected to do better on this task. Why might that be?}
 limited exploration, very high-dimensional state spaces, or tight memory?}
 \expect{2--3 sentences.}
 \begin{solution}
-\todo{answer}
+A tabular agent learns nothing about a state--action pair until it has visited it, and it needs one entry per
+discretised state. Both grow exponentially with the state dimension ($20^d$ cells for $d$ variables), so in
+high-dimensional spaces or with a limited exploration budget most cells are never visited and the table
+cannot even be stored. Function approximation \emph{generalises}: an update from one state changes the Q-values of
+all similar states through the shared weights, so a good policy can be learned from far fewer samples. Its memory
+is fixed by the number of features (here $36\times3$ weights instead of $20^2\times3$ table entries), not by the
+size of the state space, and it works directly on continuous states without discretisation error.
 \end{solution}
 
 % ----------------------------------------------------------------------------
@@ -89,15 +216,40 @@ limited exploration, very high-dimensional state spaces, or tight memory?}
 \question{Explain how \texttt{self.max\_speed} is used in Gym's \texttt{mountain\_car.py}.}
 \expect{One sentence.}
 \begin{solution}
-\todo{answer}
+After every velocity update the environment clips the velocity to $[-\texttt{max\_speed},\,\texttt{max\_speed}]$
+(\texttt{np.clip(velocity, -self.max\_speed, self.max\_speed)}), so the car can never move faster than
+\texttt{max\_speed} in either direction. The value also sets the velocity bounds of the observation space, which our
+reward function uses (the velocity term is $-(\texttt{max\_speed}-|v|)$).
 \end{solution}
 
 \problempart{5b}{Removing the constraint}
-\question{Run \texttt{train.py --agent function-approximation --max\_speed=100000}. Why does the behaviour of the
+\question{Run \texttt{train.py -{}-agent function-approximation -{}-max\_speed=100000}. Why does the behaviour of the
 learned policy barely change compared with $\texttt{max\_speed}=0.07$?}
 \expect{1--2 sentences.}
 \begin{solution}
-\todo{answer}
+Removing the limit does not change the physics. With \texttt{force}$=0.001$ and \texttt{gravity}$=0.0025$, the car
+never comes close to $0.07$. We ran the environment with \texttt{max\_speed}$=10^5$ (no clipping) and recorded the
+largest speed reached:
+\begin{itemize}
+  \item an energy-pumping policy (push in the direction of motion), 200 episodes: $|v|_{\max}=0.062$;
+  \item a random policy, 50 episodes: $|v|_{\max}=0.057$.
+\end{itemize}
+So the clip never binds, and the transition dynamics, and therefore the optimal policy, stay the same.
+
+What does change is the reward. The shaping term $-(\texttt{max\_speed}-|v|)$ becomes an almost constant
+$\approx-10^5$ per step. That rescales the returns to the order of $-10^7$ (trial~3's
+$-63\,231\,126$ is exactly $10^5\sum_{t<1000}0.999^t$, a timeout in every episode), but it does not change which
+action is best, because the only thing that matters is still reaching the goal in as few steps as possible. Two of
+our three runs learned to reach the goal, in 417/500 and 499/500 evaluation episodes, and one failed. This is the
+same pattern as the default-speed runs in 4d (trial~2 failed there too). The large reward scale makes
+each TD update about $10^5$ times larger and swamps the small velocity bonus, so learning is somewhat noisier, but
+the behaviour is qualitatively unchanged.
+\begin{figure}[H]\centering
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/fapprox_maxspeed100000_1.png}\hfill
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/fapprox_maxspeed100000_2.png}\hfill
+  \includegraphics[width=0.32\linewidth]{04_mountaincar/fapprox_maxspeed100000_3.png}
+  \caption{Function-approximation Q-learning with \texttt{max\_speed}$=10^5$, trials 1--3.}
+\end{figure}
 \end{solution}
 
 \problempart{5c}{Constrained Q-learning}
@@ -108,7 +260,15 @@ run \texttt{grader.py 5c-helper}. Why do the policies for $\texttt{max\_speed}=0
 \texttt{max\_speed} differ?}
 \expect{1--2 sentences (only the written answer is graded). Code: notebook \S4.5c.}
 \begin{solution}
-\todo{answer}
+In our run of \texttt{5c-helper}, the unconstrained agent ($\texttt{max\_speed}=10000$) used left/none/right
+$136/152/142$ times in its final trajectory (430 steps), while the agent constrained to $0.065$ used them
+$75/64/169$ times (308 steps). The two policies differ because the constraint changes the problem itself, not just
+the learner. In every state where an action would push the predicted velocity to $0.065$ or above, that action is
+removed, so near the top of a swing the constrained agent cannot pick the same greedy action as the unconstrained
+one. It is also only ever trained on, and evaluates Q-values over, the restricted action set, so it learns different
+Q-values and settles on a different, more right-heavy way of building momentum that stays within the speed limit.
+The counts change from run to run because the agents are trained online for only 100 episodes, but the
+constrained action sets, and hence the policies, are genuinely different.
 \end{solution}
 
 \problempart{5d}{Designing safe MDPs for autonomous driving}
@@ -118,7 +278,38 @@ modification that reduces or avoids that harm.}
 \expect{For each MDP: $\text{States}$, $\text{Actions}(s)$, $\text{Reward}(s,a,s')$, an exploration policy, and
 a 1--2 sentence ethical explanation.}
 \begin{solution}
-\textbf{MDP A.} \todo{States / Actions(s) / Reward(s,a,s') / exploration policy / harm}
+\textbf{MDP A (harmful).}
+\begin{itemize}[nosep]
+  \item \emph{States:} $s=(x, v, \theta, \text{lane}, \text{light}, P, O)$: the car's position, speed and heading, current
+        lane, traffic-light state ahead, and the detected positions and velocities of pedestrians $P$ and other
+        vehicles $O$ from the cameras.
+  \item \emph{Actions:} $\text{Actions}(s)=\{\text{accelerate}, \text{brake}, \text{steer left}, \text{steer right},
+        \text{keep}\}$ in every state, with no restrictions.
+  \item \emph{Reward:} $\text{Reward}(s,a,s')=-1$ per time step, $+100$ on reaching the destination, and $-10$ for a
+        collision; nothing for speeding, red lights or pedestrians.
+  \item \emph{Exploration:} $\epsilon$-greedy with $\epsilon=0.3$: in 30\,\% of time steps a uniformly random action
+        is executed on the real road.
+\end{itemize}
+\emph{Why harmful:} random actions on a public road mean random braking, swerving into other lanes or accelerating
+through crossings, and the reward makes a red light or a pedestrian in the way merely a small cost compared with
+arriving faster. The people who bear the risk of this exploration (pedestrians and other drivers) never consented to
+it.
 
-\textbf{MDP B.} \todo{States / Actions(s) / Reward(s,a,s') / exploration policy / mitigation}
+\textbf{MDP B (safer).}
+\begin{itemize}[nosep]
+  \item \emph{States:} the same as in MDP A, plus the local speed limit $v_{\max}$ and the minimum distance $d_{\min}$
+        to any pedestrian or vehicle.
+  \item \emph{Actions:} $\text{Actions}(s)$ contains only actions that a rule-based safety filter certifies as safe
+        for the next step. The predicted speed stays below $v_{\max}$, the predicted distance to every pedestrian
+        and vehicle stays above a safety margin, and the car may not enter an intersection on red. If no action is
+        certified, only ``brake'' is allowed (constrained RL, as in 5c).
+  \item \emph{Reward:} $-1$ per time step, $+100$ at the destination, $-1000$ for any collision or traffic violation, and
+        a smooth penalty $-c\cdot\max(0, d_{\text{safe}}-d_{\min})$ for getting close to a pedestrian.
+  \item \emph{Exploration:} explore only in simulation and on closed test tracks. On public roads, run greedily with
+        a human safety driver able to take over at any time; any remaining exploration ($\epsilon\le0.05$) samples
+        only among the certified actions.
+\end{itemize}
+\emph{Why safer:} harm is prevented by construction rather than merely discouraged, because unsafe actions are never
+available, and the risky trial-and-error happens where nobody can be hurt. The reward now encodes the values society
+expects (laws, distance to vulnerable road users), so the agent does not learn that violations are cheap.
 \end{solution}

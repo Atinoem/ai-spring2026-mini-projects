@@ -16,11 +16,20 @@ The other car is stationary: $C_t=C$ for all $t$.
 \question{Draw the Bayesian network over $C,D_1,D_2,D_3,a_1,a_2,a_3$, shading the variables observed after $t=3$.}
 \expect{A legible drawing with one arrow from each parent of each variable.}
 \begin{solution}
-\todo{draw with TikZ: nodes use the styles latent / obs, arrows use edge}
-% \begin{center}\begin{tikzpicture}[node distance=18mm]
-%   \node[latent] (C) {$C$};
-%   ...
-% \end{tikzpicture}\end{center}
+Each reading $D_t$ depends on the (hidden) location $C$ and on our own position $a_t$, so both are parents of
+$D_t$. After $t=3$ the readings and our positions are observed (shaded), and only $C$ is unknown.
+\begin{center}
+\begin{tikzpicture}[node distance=15mm and 18mm]
+  \node[latent] (C) {$C$};
+  \node[obs, below=of C] (D2) {$D_2$};
+  \node[obs, left=of D2] (D1) {$D_1$};
+  \node[obs, right=of D2] (D3) {$D_3$};
+  \node[obs, below=of D1] (a1) {$a_1$};
+  \node[obs, below=of D2] (a2) {$a_2$};
+  \node[obs, below=of D3] (a3) {$a_3$};
+  \foreach \t in {1,2,3} { \draw[edge] (C) -- (D\t); \draw[edge] (a\t) -- (D\t); }
+\end{tikzpicture}
+\end{center}
 \end{solution}
 
 \problempart{1b}{Joint distribution}
@@ -28,11 +37,18 @@ The other car is stationary: $C_t=C$ for all $t$.
 ($a_1,a_2,a_3$ are known with probability 1).}
 \expect{A formula that uses only local conditional distributions.}
 \begin{solution}
-\todo{answer}
+Multiplying the local conditional distributions of the network (the $a_t$ are fixed, observed values):
+\[
+\P(C=c,D_1=d_1,D_2=d_2,D_3=d_3)=p(c)\prod_{t=1}^{3}p(d_t\mid c,a_t)
+=p(c)\prod_{t=1}^{3}p_{\mathcal N}\bigl(d_t;\ \norm{a_t-c},\ \sigma^2\bigr).
+\]
 \end{solution}
 
 \problempart{1c}{\texttt{ExactInference.observe}}
 \codepart{6.1c}
+For every tile $c$ we multiply the current belief by $p(d_t\mid c)=p_{\mathcal N}(d_t;\norm{a_t-c},\sigma^2)$,
+computed with \texttt{util.pdf(mean, std, value)} in that order, and then normalise. The grader awards 4/4, including
+its test that swaps \texttt{util.pdf} for a function that is not symmetric in its arguments.
 
 % ----------------------------------------------------------------------------
 \subsection{Transition probabilities}
@@ -42,18 +58,43 @@ The other car moves according to $p(c_{t+1}\mid c_t)$, given in code as \texttt{
 \question{Draw the Bayesian network over $C_1,C_2,C_3,D_1,D_2,D_3,a_1,a_2,a_3$, shading the variables observed after $t=3$.}
 \expect{A legible drawing with one arrow from each parent of each variable.}
 \begin{solution}
-\todo{TikZ drawing}
+The locations now form a Markov chain $C_1\to C_2\to C_3$ (a hidden Markov model), and each reading depends on the
+location at its own time step and on our position at that time.
+\begin{center}
+\begin{tikzpicture}[node distance=15mm and 18mm]
+  \node[latent] (C1) {$C_1$};
+  \node[latent, right=of C1] (C2) {$C_2$};
+  \node[latent, right=of C2] (C3) {$C_3$};
+  \node[obs, below=of C1] (D1) {$D_1$};
+  \node[obs, below=of C2] (D2) {$D_2$};
+  \node[obs, below=of C3] (D3) {$D_3$};
+  \node[obs, below=of D1] (a1) {$a_1$};
+  \node[obs, below=of D2] (a2) {$a_2$};
+  \node[obs, below=of D3] (a3) {$a_3$};
+  \draw[edge] (C1) -- (C2); \draw[edge] (C2) -- (C3);
+  \foreach \t in {1,2,3} { \draw[edge] (C\t) -- (D\t); \draw[edge] (a\t) -- (D\t); }
+\end{tikzpicture}
+\end{center}
 \end{solution}
 
 \problempart{2b}{Joint distribution}
 \question{Express $\P(C_1=c_1,C_2=c_2,C_3=c_3,D_1=d_1,D_2=d_2,D_3=d_3)$ using only local conditional distributions.}
 \expect{A formula that uses only local conditional distributions.}
 \begin{solution}
-\todo{answer}
+\[
+\P(c_1,c_2,c_3,d_1,d_2,d_3)=p(c_1)\,p(c_2\mid c_1)\,p(c_3\mid c_2)\,\prod_{t=1}^{3}p(d_t\mid c_t,a_t),
+\]
+\[
+p(d_t\mid c_t,a_t)=p_{\mathcal N}\bigl(d_t;\ \norm{a_t-c_t},\ \sigma^2\bigr).
+\]
 \end{solution}
 
 \problempart{2c}{\texttt{ExactInference.elapseTime}}
 \codepart{6.2c}
+We build the new belief in a separate grid of zeros. For every pair $(c_t,c_{t+1})$ in the sparse transition table we
+add $\P(C_t=c_t\mid d_{1:t})\,p(c_{t+1}\mid c_t)$, and then normalise. Every term therefore uses only the old
+belief, and the work is proportional to the number of transitions rather than (number of tiles)$^2$. The grader
+awards 2/2, and the hidden stress tests run in under $0.04$\,s (limit 5\,s).
 
 % ----------------------------------------------------------------------------
 \subsection{Which car is it?}
@@ -72,7 +113,25 @@ $p_{\mathcal N}(v;\mu,\sigma^2)$ and the priors $p(c_{11}),p(c_{12})$, without $
 (For $K=1$: $p(c_{11}\mid\mathbf e_1)\propto p(c_{11})\,p_{\mathcal N}(e_{11};\norm{a_1-c_{11}},\sigma^2)$.)}
 \expect{The expression (proportionality is fine) and the steps taken to derive it.}
 \begin{solution}
-\todo{answer}
+Write $\mu_i=\norm{a_1-c_{1i}}$ for the true distance to car $i$ and $\pi$ for the random permutation, so that
+$\mathbf E_1=(D_{1\pi(1)},D_{1\pi(2)})$ and each of the two orderings has probability $\tfrac12$.
+\begin{enumerate}[nosep]
+  \item Bayes' rule: $p(c_{11},c_{12}\mid\mathbf e_1)\propto p(c_{11})\,p(c_{12})\,p(\mathbf e_1\mid c_{11},c_{12})$
+        (the cars' locations are independent a priori).
+  \item Condition on the permutation and marginalise it out:
+        $p(\mathbf e_1\mid c_{11},c_{12})=\sum_{\pi}p(\pi)\,p(\mathbf e_1\mid\pi,c_{11},c_{12})$.
+  \item Given $\pi$, $e_{1j}$ is the reading of car $\pi(j)$, and $D_{11},D_{12}$ are independent given the locations, so
+        $p(\mathbf e_1\mid\pi,c_{11},c_{12})=\prod_j p_{\mathcal N}(e_{1j};\mu_{\pi(j)},\sigma^2)$. This integrates out
+        $D_{11},D_{12}$, because $\mathbf E_1$ is a deterministic rearrangement of them once $\pi$ is fixed.
+\end{enumerate}
+Therefore
+\[
+p(c_{11},c_{12}\mid\mathbf e_1)\ \propto\ p(c_{11})\,p(c_{12})\Bigl[
+p_{\mathcal N}(e_{11};\mu_1,\sigma^2)\,p_{\mathcal N}(e_{12};\mu_2,\sigma^2)
++p_{\mathcal N}(e_{11};\mu_2,\sigma^2)\,p_{\mathcal N}(e_{12};\mu_1,\sigma^2)\Bigr],
+\]
+with $\mu_i=\norm{a_1-c_{1i}}$ (the common factor $\tfrac12$ is absorbed into the proportionality). Compared with
+$K=1$, the likelihood is a sum over the two ways of matching readings to cars.
 \end{solution}
 
 \problempart{3b}{At least $K!$ maximisers}
@@ -81,7 +140,19 @@ $(c_{11},\dots,c_{1K})$ attain the maximum of $p(C_{11}=c_{11},\dots,C_{1K}=c_{1
 (assume the maximising locations are distinct).}
 \expect{A short mathematical argument or a concise explanation.}
 \begin{solution}
-\todo{answer}
+Generalising 3a,
+\[
+p(c_{11},\dots,c_{1K}\mid\mathbf e_1)\propto\Bigl(\prod_{i=1}^K p(c_{1i})\Bigr)\,
+\frac1{K!}\sum_{\pi\in S_K}\prod_{j=1}^K p_{\mathcal N}\bigl(e_{1j};\norm{a_1-c_{1\pi(j)}},\sigma^2\bigr).
+\]
+Let $\tau$ be any permutation of the car labels and consider the relabelled assignment
+$(c_{1\tau(1)},\dots,c_{1\tau(K)})$. The prior product is unchanged because all cars share the same prior and the
+product is commutative. The likelihood is also unchanged, because composing with $\tau$ maps the set of all
+permutations $S_K$ onto itself ($\pi\mapsto\tau\circ\pi$), so the sum contains exactly the same terms. Hence every
+relabelling has the same posterior probability. If $(c^\star_{11},\dots,c^\star_{1K})$ is a maximiser with
+distinct locations, its $K!$ relabellings are $K!$ \emph{distinct} assignments that all attain the maximum, so
+there are at least $K!$ maximisers. Intuitively, the readings carry no labels and the cars are exchangeable a priori,
+so the data can tell us \emph{where} the cars are but never \emph{which car is which}.
 \end{solution}
 
 % ----------------------------------------------------------------------------
@@ -92,27 +163,50 @@ $(c_{11},\dots,c_{1K})$ attain the maximum of $p(C_{11}=c_{11},\dots,C_{1K}=c_{1
 data or its readings be misused, and what measures could pre-empt the misuse (or why are there none)?}
 \expect{4--6 sentences.}
 \begin{solution}
-\todo{answer}
+A fleet of camera-equipped cars is in effect a moving, city-wide surveillance network. Combining the time-stamped
+licence plates and faces it records lets the operator, a hacker, or a government that subpoenas the data
+reconstruct where specific people live, work, worship or protest, and track them over time without their consent.
+The same tracking output could be repurposed for targeted advertising, insurance pricing, stalking, or locating
+members of a particular community. Measures that pre-empt this: process images on the vehicle and keep only the
+abstract output the driving stack needs (bounding boxes, velocities), never the raw frames; blur faces and plates
+at capture time; delete what must be kept after a short, fixed retention period; encrypt stored data and log every
+access; and set legal and contractual limits on sharing data with third parties. These measures reduce, but cannot
+remove, the dual-use risk: whoever controls the software can switch them off, so independent audits and
+regulation are needed as well.
 \end{solution}
 
 \problempart{4b}{Sensor deception}
 \codepart{6.4b}
 Observed distance after the attack:
 $D'_t=\frac{1}{1+\text{skewness}^2}\,D_t+\sqrt{\frac{2}{1+\text{skewness}^2}}$, implemented in
-\texttt{ExactInferenceWithSensorDeception.observe}.
+\texttt{ExactInferenceWithSensorDeception.observe}, which transforms the reading and then calls the ordinary
+emission update. With the default skewness $0.5$ every reading is shrunk to $80\%$ of its value plus about
+$1.26$, so the tracker systematically believes the other cars are \emph{closer} than they really are. The grader
+awards 3/3.
 
 \problempart{4c}{Guarding against sensor deception}
 \question{How could you guard against sensor deception if the type of attack is known in advance? (Hint: sensor redundancy.)}
 \expect{1--2 sentences.}
 \begin{solution}
-\todo{answer}
+Use redundant, physically different sensors, such as a microphone, lidar, radar and cameras, and fuse them, so
+that a reading that disagrees with the consensus is flagged and down-weighted. An attacker would then have to fool
+several independent sensing modalities at once. Because the form of the attack is known, we can also invert it,
+$D_t=(1+s^2)\bigl(D'_t-\sqrt{2/(1+s^2)}\bigr)$, or test incoming readings for that skew pattern before using them.
 \end{solution}
 
 \problempart{4d}{Particle filtering vs.\ exact inference}
 \question{Run \texttt{python drive.py -a -d -k 3 -i particleFilter}. How does the simulation differ from exact inference, and why?}
 \expect{1--2 sentences.}
 \begin{solution}
-\todo{answer}
+With the particle filter, the belief cloud around each car is patchier and noisier than with exact inference. It
+jumps between frames, leaves gaps in plausible areas, and can lock onto the wrong spot for a while. The reason is
+that it represents the belief with only 200 sampled particles that are resampled at every step: tiles without a
+particle get probability exactly zero, and sampling noise moves the cloud around, whereas exact inference keeps a
+probability for every tile. We measured this without the GUI (\texttt{scripts/car\_tracking\_comparison.py}, Lombard map,
+20 runs of 40 steps). The most likely tile is on average 78.9 map units from the true car for the particle filter versus 65.0
+for exact inference, and the particle belief puts more than $1\%$ probability on fewer tiles (7.9 vs.\ 9.7). On a
+map this small (253 tiles for 200 particles) the particle filter was not faster ($3.1$ vs.\ $1.6$\,ms per step);
+its advantage only appears when the number of tiles is much larger than the number of particles.
 \end{solution}
 
 \problempart{4e}{Privacy--accuracy trade-off}
@@ -120,7 +214,14 @@ $D'_t=\frac{1}{1+\text{skewness}^2}\,D_t+\sqrt{\frac{2}{1+\text{skewness}^2}}$, 
 exact inference. How would you weigh this trade-off?}
 \expect{3--5 sentences.}
 \begin{solution}
-\todo{answer}
+We would treat safety as a hard constraint and privacy as the objective inside it, not trade one off freely against
+the other. First, measure whether the on-device particle filter is accurate \emph{enough}: count near-misses, collisions
+and false alarms in simulation and on test tracks, and raise the number of particles (which costs on-device compute,
+not privacy) until the safety margin matches the cloud system. If that is achievable, on-device processing is
+preferable: it removes a single point of failure (the network link), lowers the attack surface, and avoids collecting
+location data about everyone on the road. If it is not, a hybrid design can send only minimal, anonymised summaries to the
+cloud when needed. In any case the decision should be made with regulators and the affected public, not by the
+manufacturer alone, because the people whose data is at stake are mostly not the car's owners.
 \end{solution}
 
 \problempart{4f}{Adversarial attack on camera-based training}
@@ -128,5 +229,13 @@ exact inference. How would you weigh this trade-off?}
 adversarial attack, its potential impact on the vehicle, and a mitigation.}
 \expect{3--5 sentences.}
 \begin{solution}
-\todo{answer}
+\textbf{Attack:} data poisoning with a backdoor. Because the car keeps learning from customer footage, an attacker who
+controls some vehicles, or simply drives in front of many of them, can repeatedly show a trigger pattern, such as a
+specific sticker on stop signs, in situations that are labelled ``no stop needed''. \textbf{Impact:} the retrained
+model learns that the sticker means ``ignore this sign'', so it behaves normally in all tests but runs stop signs
+carrying the sticker, which could be exploited against a particular location or community. \textbf{Mitigation:} do
+not feed customer data straight into training. Instead, filter it for anomalies and outliers, limit how much any
+single vehicle or location can contribute, validate every new model on held-out safety-critical scenarios including
+known trigger patterns, and keep a rule-based safety layer (for example, map-based stop-sign knowledge) that the
+learned model cannot override.
 \end{solution}

@@ -27,16 +27,21 @@ def value_iteration(succ_and_reward_prob: Dict[Tuple[state_t, action_t], List[Tu
     def compute_q(v: Dict[state_t, float], state: state_t, action: action_t) -> float:
         # Return q(state, action) based on v(state)
         # BEGIN_YOUR_CODE (our solution is 2 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # Bellman backup: Q(s, a) = sum_{s'} T(s'|s, a) * [Reward(s, a, s') + gamma * V(s')].
+        # States never seen as a source (e.g. terminal states) have V = 0 via the defaultdict.
+        return sum(prob * (reward + discount * v[next_state])
+                   for next_state, prob, reward in succ_and_reward_prob[(state, action)])
         # END_YOUR_CODE
 
     def compute_policy(v: Dict[state_t, float]) -> Dict[state_t, action_t]:
         # Return the policy given v.
         # Remember the policy for a state is the action that gives the greatest q-value.
-        # IMPORTANT: if multiple actions give the same q-value, choose the largest action number for the policy. 
+        # IMPORTANT: if multiple actions give the same q-value, choose the largest action number for the policy.
         # HINT: We only compute policies for states in state_actions.
         # BEGIN_YOUR_CODE (our solution is 4 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # max over (q, action) pairs: equal q-values are broken by the larger action, as required.
+        return {state: max((compute_q(v, state, action), action) for action in actions)[1]
+                for state, actions in state_actions.items()}
         # END_YOUR_CODE
 
     print('Running value_iteration...')
@@ -47,7 +52,13 @@ def value_iteration(succ_and_reward_prob: Dict[Tuple[state_t, action_t], List[Tu
         # update v values using the compute_q function above.
         # repeat until the v values for all states do not change by more than epsilon.
         # BEGIN_YOUR_CODE (our solution is 4 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # One synchronous sweep: every new value is computed from the *previous* v only.
+        for state, actions in state_actions.items():
+            new_v[state] = max(compute_q(v, state, action) for action in actions)
+        if max(abs(new_v[state] - v[state]) for state in state_actions) < epsilon:
+            v = new_v
+            num_iters += 1
+            break
         # END_YOUR_CODE
         v = new_v
         num_iters += 1
@@ -108,7 +119,11 @@ class ModelBasedMonteCarlo(util.RlAlgorithm):
         elif self.num_iters > 1e6: # Lower the exploration probability by a logarithmic factor.
             exploration_prob = exploration_prob / math.log(self.num_iters - 100000 + 1)
         # BEGIN_YOUR_CODE (our solution is 5 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # Epsilon-greedy: explore (only at train time) with probability exploration_prob, and
+        # fall back to a random action for states value iteration has not produced a policy for.
+        if state not in self.pi or (explore and random.random() < exploration_prob):
+            return random.choice(self.actions)
+        return self.pi[state]
         # END_YOUR_CODE
 
     # We will call this function with (s, a, r, s'), which is used to update t_counts and r_total.
@@ -125,7 +140,14 @@ class ModelBasedMonteCarlo(util.RlAlgorithm):
             # Then run value_iteration and update self.pi.
             succ_and_reward_prob = defaultdict(list)
             # BEGIN_YOUR_CODE (our solution is 7 lines of code, but don't worry if you deviate from this)
-            raise Exception("Not implemented yet")
+            # Maximum-likelihood estimates from the observed transitions:
+            #   T_hat(s'|s, a) = N(s, a, s') / N(s, a),  R_hat(s, a, s') = total reward / N(s, a, s').
+            for (s, a), next_counts in self.t_counts.items():
+                total = sum(next_counts.values())
+                for next_state, count in next_counts.items():
+                    avg_reward = self.r_total[(s, a)][next_state] / count
+                    succ_and_reward_prob[(s, a)].append((next_state, count / total, avg_reward))
+            self.pi = value_iteration(succ_and_reward_prob, self.discount)
             # END_YOUR_CODE
 
 ############################################################
@@ -161,7 +183,10 @@ class TabularQLearning(util.RlAlgorithm):
         elif self.num_iters > 1e5: # Lower the exploration probability by a logarithmic factor.
             exploration_prob = exploration_prob / math.log(self.num_iters - 100000 + 1)
         # BEGIN_YOUR_CODE (our solution is 5 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        if explore and random.random() < exploration_prob:
+            return random.choice(self.actions)
+        # Greedy action: highest Q(state, a); unseen pairs have the initial_q value.
+        return max(self.actions, key=lambda action: self.q[state, action])
         # END_YOUR_CODE
 
     # Call this function to get the step size to update the weights.
@@ -176,7 +201,12 @@ class TabularQLearning(util.RlAlgorithm):
     # HINT 2: v for terminal states is 0
     def incorporate_feedback(self, state: state_t, action: action_t, reward: float, next_state: state_t, terminal: bool) -> None:
         # BEGIN_YOUR_CODE (our solution is 8 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # Q-learning: move Q(s, a) towards the target r + gamma * max_a' Q(s', a'),
+        # where the future value of a terminal state is 0.
+        future_value = 0.0 if terminal else max(self.q[next_state, a] for a in self.actions)
+        target = reward + self.discount * future_value
+        prediction = self.q[state, action]
+        self.q[state, action] = prediction + self.get_step_size() * (target - prediction)
         # END_YOUR_CODE
 
 ############################################################
@@ -205,7 +235,14 @@ def fourier_feature_extractor(
     # doing efficient arithmetic broadcasting in numpy.
 
     # BEGIN_YOUR_CODE (our solution is 7 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    # Build every inner product c . (scale * state) with c in {0, ..., max_coeff}^k as an
+    # "outer sum": start with the multiples of the first scaled coordinate and, for each further
+    # coordinate, add all of its multiples to every entry so far (shape grows by max_coeff + 1).
+    coeffs = np.arange(max_coeff + 1)
+    sums = coeffs * (state[0] * scale[0])
+    for i in range(1, len(state)):
+        sums = (sums[:, None] + coeffs[None, :] * (state[i] * scale[i])).flatten()
+    features = np.cos(np.pi * sums)   # shape ((max_coeff + 1) ** len(state),)
     # END_YOUR_CODE
 
     return features
@@ -233,7 +270,8 @@ class FunctionApproxQLearning(util.RlAlgorithm):
 
     def get_q(self, state: np.ndarray, action: int) -> float:
         # BEGIN_YOUR_CODE (our solution is 3 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # Linear approximation: one weight column per action, Q(s, a) = phi(s) . w[:, a].
+        return float(self.feature_extractor(state) @ self.w[:, action])
         # END_YOUR_CODE
 
     # This algorithm will produce an action given a state.
@@ -251,7 +289,9 @@ class FunctionApproxQLearning(util.RlAlgorithm):
             exploration_prob = exploration_prob / math.log(self.num_iters - 100000 + 1)
 
         # BEGIN_YOUR_CODE (our solution is 5 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        if explore and random.random() < exploration_prob:
+            return random.choice(self.actions)
+        return max(self.actions, key=lambda action: self.get_q(state, action))
         # END_YOUR_CODE
 
     # Call this function to get the step size to update the weights.
@@ -265,7 +305,13 @@ class FunctionApproxQLearning(util.RlAlgorithm):
     # HINT 2: review the function approximation module for the update rule
     def incorporate_feedback(self, state: np.ndarray, action: int, reward: float, next_state: np.ndarray, terminal: bool) -> None:
         # BEGIN_YOUR_CODE (our solution is 8 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # Semi-gradient Q-learning on the squared error (Q(s, a) - target)^2 / 2:
+        #   w[:, a] <- w[:, a] - eta * (Q(s, a) - target) * phi(s),
+        # with target = r + gamma * max_a' Q(s', a') (and no future value at a terminal state).
+        future_value = 0.0 if terminal else max(self.get_q(next_state, a) for a in self.actions)
+        target = reward + self.discount * future_value
+        residual = self.get_q(state, action) - target
+        self.w[:, action] -= self.get_step_size() * residual * self.feature_extractor(state)
         # END_YOUR_CODE
 
 ############################################################
@@ -296,7 +342,19 @@ class ConstrainedQLearning(FunctionApproxQLearning):
             exploration_prob = exploration_prob / math.log(self.num_iters - 100000 + 1)
 
         # BEGIN_YOUR_CODE (our solution is 15 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # Keep only actions whose *predicted* next velocity stays below the threshold, using the
+        # Mountain Car dynamics: v_{t+1} = v_t + (action - 1) * force - cos(3 * x_t) * gravity.
+        position, velocity = state[0], state[1]
+        valid_actions = [
+            action for action in self.actions
+            if self.max_speed is None
+            or velocity + (action - 1) * self.force - math.cos(3 * position) * self.gravity < self.max_speed
+        ]
+        if not valid_actions:
+            return None  # no safe action exists: the simulator stops the episode
+        if explore and random.random() < exploration_prob:
+            return random.choice(valid_actions)
+        return max(valid_actions, key=lambda action: self.get_q(state, action))
         # END_YOUR_CODE
 
 ############################################################

@@ -52,7 +52,16 @@ class ExactInference:
 
     def observe(self, agentX: int, agentY: int, observedDist: float) -> None:
         # BEGIN_YOUR_CODE (our solution is 7 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # Bayes' rule for a hidden location C and observed distance D_t = d_t:
+        #   P(C = c | d_1..d_t)  ∝  P(C = c | d_1..d_{t-1}) * p(d_t | c),
+        # where the emission p(d_t | c) is a Gaussian density centred on the true distance
+        # between our car (agentX, agentY) and the centre of tile c, with std Const.SONAR_STD.
+        for row in range(self.belief.getNumRows()):
+            for col in range(self.belief.getNumCols()):
+                true_dist = math.hypot(agentX - util.colToX(col), agentY - util.rowToY(row))
+                emission = util.pdf(true_dist, Const.SONAR_STD, observedDist)  # pdf(mean, std, value)
+                self.belief.setProb(row, col, self.belief.getProb(row, col) * emission)
+        self.belief.normalize()
         # END_YOUR_CODE
 
     ##################################################################################
@@ -80,7 +89,17 @@ class ExactInference:
         if self.skipElapse: ### ONLY FOR THE GRADER TO USE IN Problem 1
             return
         # BEGIN_YOUR_CODE (our solution is 7 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # Forward step of the HMM:
+        #   P(C_{t+1} = c' | d_1..d_t) ∝ sum_c P(C_t = c | d_1..d_t) * p(c' | c).
+        # Build the new belief in a separate grid (all zeros) so that every term uses only the
+        # *current* belief, then iterate over the sparse transition table (pairs not listed
+        # have probability 0).
+        new_belief = util.Belief(self.belief.getNumRows(), self.belief.getNumCols(), 0.0)
+        for (old_tile, new_tile), trans_prob in self.transProb.items():
+            new_belief.addProb(new_tile[0], new_tile[1],
+                               self.belief.getProb(old_tile[0], old_tile[1]) * trans_prob)
+        new_belief.normalize()
+        self.belief = new_belief
         # END_YOUR_CODE
 
     def getBelief(self) -> Belief:
@@ -132,7 +151,11 @@ class ExactInferenceWithSensorDeception(ExactInference):
 
     def observe(self, agentX: int, agentY: int, observedDist: float) -> None:
         # BEGIN_YOUR_CODE (our solution is 5 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        # The attacker skews every reading: D'_t = D_t / (1 + s^2) + sqrt(2 / (1 + s^2)).
+        # Apply that transformation, then run the ordinary emission update on the skewed value.
+        shrink = 1.0 / (1.0 + self.skewness ** 2)
+        skewed_dist = shrink * observedDist + math.sqrt(2.0 * shrink)
+        super().observe(agentX, agentY, skewed_dist)
         # END_YOUR_CODE
 
     def elapseTime(self) -> None:

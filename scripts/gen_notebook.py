@@ -61,6 +61,63 @@ APPROACH = {
                "with `is_end` always `False` so the whole graph is exhausted. `ucs.past_costs[loc]` is then the exact "
                "shortest distance from `loc` to the nearest end location (distances are symmetric). Ignoring waypoints "
                "makes it a lower bound, hence admissible; a lookup is $O(1)$.",
+    (4, "3a"): "Synchronous Bellman backups: $Q(s,a)=\\sum_{s'}T(s'|s,a)[R(s,a,s')+\\gamma V(s')]$ and "
+               "$V_{new}(s)=\\max_a Q(s,a)$, where every new value is computed from the previous sweep only. We stop when "
+               "no state changes by more than ε. The policy takes the `max` over `(q, action)` pairs, so equal Q-values "
+               "are broken towards the larger action, as the handout requires. States never seen as a source (terminal "
+               "states) have value 0 through the `defaultdict`.",
+    (4, "3b"): "`get_action` is ε-greedy, and a state without a computed policy yet gets a random action (at test time "
+               "we always follow the policy when one exists). `incorporate_feedback` records counts and summed rewards. "
+               "Every `calc_val_iter_every` steps it forms the maximum-likelihood model "
+               "$\\hat T(s'|s,a)=N(s,a,s')/N(s,a)$, $\\hat R(s,a,s')=\\text{reward sum}/N(s,a,s')$ and re-runs value "
+               "iteration on it.",
+    (4, "4a"): "ε-greedy over `self.q`, otherwise the greedy action. The update is "
+               "$Q(s,a)\\leftarrow Q(s,a)+\\eta\\,[r+\\gamma\\max_{a'}Q(s',a')-Q(s,a)]$, and the future term is dropped "
+               "when $s'$ is terminal.",
+    (4, "4b"): "The features are $\\cos(\\pi\\,c\\cdot(\\text{scale}\\odot s))$ for every $c\\in\\{0,\\dots,m\\}^k$. We build "
+               "all inner products as an *outer sum*: start from the multiples of the first scaled coordinate, then for "
+               "each further coordinate add all of its multiples to every entry so far (`a[:, None] + b[None, :]`, "
+               "flattened). The result has $(m+1)^k$ entries and needs no Python loop over coefficients.",
+    (4, "4c"): "Linear Q-function with one weight column per action: $Q(s,a)=\\phi(s)\\cdot w_{:,a}$. Semi-gradient "
+               "Q-learning on $\\tfrac12(Q(s,a)-\\text{target})^2$ updates only column $a$: "
+               "$w_{:,a}\\leftarrow w_{:,a}-\\eta\\,(Q(s,a)-\\text{target})\\,\\phi(s)$, with "
+               "$\\text{target}=r+\\gamma\\max_{a'}Q(s',a')$ (or just $r$ at a terminal state).",
+    (4, "5c"): "Predict the next velocity of each action with the Mountain Car dynamics "
+               "$v_{t+1}=v_t+(a-1)\\cdot\\text{force}-\\cos(3x_t)\\cdot\\text{gravity}$ and keep the actions with "
+               "$v_{t+1}<$ `max_speed`. We then choose ε-greedily among those safe actions only, and return `None` when "
+               "no action is safe, which makes `simulate` end the episode.",
+    (5, "1b"): "A recursive `value(state, depth, agent)` implements the recurrence of PDF §5 (1a). End states return "
+               "the score, depth 0 returns `self.evaluation_function`, Pac-Man takes the `max` and each ghost the "
+               "`min`. Turns rotate through all agents, and the depth decreases only when play returns to Pac-Man, so "
+               "one depth is Pac-Man plus every ghost. The root returns the action with the best successor value.",
+    (5, "2a"): "Same recursion with $(\\alpha,\\beta)$ bounds. A max node returns as soon as its value is at least "
+               "$\\beta$, and a ghost's min node as soon as its value is at most $\\alpha$. Consecutive ghost layers are "
+               "all min nodes, so they pass the same bounds down. The values equal minimax exactly; the cell below checks "
+               "this against the handout's numbers.",
+    (5, "3b"): "Identical to minimax except that a ghost node returns the **mean** of its children's values, which "
+               "models a ghost that picks each legal action with probability $1/|\\text{Actions}(s)|$.",
+    (5, "4a"): "Game score plus progress terms that a depth-2 search can see. One BFS gives maze distances. We add "
+               "$+10/(1+d_{\\text{food}})$, $-4$ per remaining pellet and $-20$ per remaining capsule; $+200/(1+d)$ for each "
+               "scared ghost reachable before its timer runs out; $-500$ for an adjacent active ghost, otherwise a weak "
+               "$-2/d$. The experiment cell below reproduces the disabled extra-credit grader and an ablation of these terms.",
+    (6, "1c"): "Bayes' rule over all tiles: multiply each tile's belief by the Gaussian emission density "
+               "`util.pdf(true_dist, SONAR_STD, observedDist)` (argument order *mean, std, value*), then normalise. "
+               "`util.pdf` is looked up at call time, as the grader requires.",
+    (6, "2c"): "Forward step of the HMM: start a fresh all-zero belief, and for every `((old, new), p)` in the sparse "
+               "transition table add `belief[old] * p` to `new`, then normalise. Only the old belief is read, and the cost "
+               "is proportional to the number of transitions.",
+    (6, "4b"): "Transform the reading $D'=D/(1+s^2)+\\sqrt{2/(1+s^2)}$ and reuse the parent's `observe`. With $s=0.5$ "
+               "the tracker believes cars are closer (80 % of the distance + 1.26).",
+    (7, "1"): "Direct translations with `Implies`, `Equiv` and `Xor` (the latter is $(A\\vee B)\\wedge\\neg(A\\wedge B)$).",
+    (7, "2"): "Quantified formulas; the definitions of Father and Granddaughter are biconditionals (∀x∀y. Defined ↔ "
+              "body), so they also rule out unintended instances.",
+    (7, "3a"): "Each testimony is `Equiv(TellTruth(speaker), statement)`. \"Exactly one\" is "
+               "$\\exists x.\\,P(x)\\wedge\\forall y.\\,(P(y)\\to x=y)$, used for both the truth-teller and the culprit. "
+               "`3a-run` asks the knowledge base who crashed the server: **Mark**.",
+    (7, "4a"): "Six axioms (unique successor, even XOR odd, parity alternates, successor is larger, Larger is "
+               "transitive). `4a-run` proves by model checking that every number has a larger even number.",
+    (7, "5"): "Three `GrammarRule`s whose semantic functions build the formulas "
+              "∀x.N1(x)→∃y.N2(y)∧V(x,y); ∃y.N1(y)∧∀x.N2(x)→V(x,y); ∀x∀y.(N1(x)∧N2(y)∧V1(x,y))→V2(x,y).",
 }
 
 def md(text):
@@ -232,6 +289,7 @@ run_script(3, str(REPO_ROOT / "scripts" / "route_figures.py"))
 MDPs and reinforcement learning on Gymnasium's MountainCar: value iteration, model-based Monte Carlo,
 tabular and Fourier-feature Q-learning, and constrained (safe) exploration.
 Problems 1, 2, 3c, 4d, 4e, 5a, 5b, 5d are written (PDF §4). Requires `gymnasium`, `pygame`, `numpy`, `matplotlib`.
+The `5c-helper` grader part takes about 40 s: it trains two constrained agents for 100 episodes each.
 """, problems=[
         ("3a", "value_iteration", "Value iteration on a dict-based transition model `(s, a) -> [(s', prob, reward)]` until the change is below ε; return the greedy policy.",
          ["value_iteration"], ["3a-0-basic", "3a-1-basic"]),
@@ -246,18 +304,23 @@ Problems 1, 2, 3c, 4d, 4e, 5a, 5b, 5d are written (PDF §4). Requires `gymnasium
         ("5c", "ConstrainedQLearning", "Only allow actions with velocity_{t+1} < threshold; return None when no action is valid.",
          ["ConstrainedQLearning"], ["5c-helper"]),
     ], experiments=[
-        ("train", "Training curves for 3c and 4d", r"""
-Each command trains three trials and saves reward plots (`mcvi_*.png`, `tabular_*.png`, `fapprox_*.png`).
-Copy the plots you discuss into `report/figures/04_mountaincar/`.
+        ("train", "Training curves for 3c, 4d and 5b", r"""
+`scripts/mountaincar_experiments.py` runs exactly the configurations of the starter's `train.py`
+(3 trials × 1000 training episodes + 500 greedy evaluation episodes per agent), but seeds every trial and
+prints summary statistics. The reward plots (made by `train.plot_rewards`) are written to
+`report/figures/04_mountaincar/` and used in PDF §4. Runtime: about 1 minute for value iteration and tabular,
+about 15 minutes for the two function-approximation runs.
 """, r"""
-import shutil
-for agent, prefix in [("value-iteration", "mcvi"), ("tabular", "tabular"), ("function-approximation", "fapprox")]:
-    run_script(4, "train.py", "--agent", agent)
-    for png in ASSIGNMENTS[4].path.glob(f"{prefix}_*.png"):
-        shutil.copy(png, ASSIGNMENTS[4].figures / png.name)
+run_script(4, str(REPO_ROOT / "scripts" / "mountaincar_experiments.py"))
 """),
-        ("5b", "Removing the speed limit (5b)", "Run function approximation with `max_speed=100000` for the written answer to 5b.", r"""
-run_script(4, "train.py", "--agent", "function-approximation", "--max_speed=100000")
+        ("plots", "Reward plots", r"""
+One representative trial per agent (all 12 plots are in `report/figures/04_mountaincar/`). Blue = training
+episodes, green = greedy evaluation episodes; the lines are 30-episode moving averages.
+""", r"""
+from IPython.display import Image, display
+for prefix in ["mcvi", "tabular", "fapprox", "fapprox_maxspeed100000"]:
+    print(prefix)
+    display(Image(filename=str(ASSIGNMENTS[4].figures / f"{prefix}_1.png"), width=650))
 """),
     ]),
 
@@ -275,13 +338,22 @@ on `mediumClassic` = 9, 18, 27, 36.
         ("3b", "ExpectimaxAgent", "Ghost layers average uniformly over their legal actions.",
          ["ExpectimaxAgent"], ["3b-0-basic", "3b-1-basic", "3b-2-basic", "3b-3-basic"]),
         ("4a", "better_evaluation_function (extra credit)", "State evaluation function; target is winning > 50 % on `smallClassic` at depth 2 with a high average score.",
-         ["better_evaluation_function"], ["4a-1-basic"]),
+         ["better_evaluation_function"], []),
     ], experiments=[
-        ("5", "Minimax vs expectimax on trappedClassic (Problem 5)", r"""
-Run each agent many times without graphics (`-q`) and record win rates and scores for PDF §5.
+        ("checks", "Handout values and Problem 5 (trappedClassic)", r"""
+1. An independent plain minimax confirms the handout's root values (minimaxClassic 9, 8, 7, −492;
+   mediumClassic 9, 18, 27), and we assert that `MinimaxAgent` and `AlphaBetaAgent` pick an action attaining them.
+2. Minimax vs expectimax on `trappedClassic` (depth 3, 50 seeded games each), used in PDF §5 (5a).
 """, r"""
-run_script(5, "pacman.py", "-p", "MinimaxAgent", "-l", "trappedClassic", "-a", "depth=3", "-q", "-n", "10")
-run_script(5, "pacman.py", "-p", "ExpectimaxAgent", "-l", "trappedClassic", "-a", "depth=3", "-q", "-n", "10")
+run_script(5, str(REPO_ROOT / "scripts" / "pacman_experiments.py"))
+"""),
+        ("4b", "Extra credit: grader-style run and ablation", r"""
+The extra-credit grader part (`4a-1-basic`) is commented out in the provided `grader.py`, so we reproduce
+it: depth-2 expectimax, `smallClassic`, two random ghosts, 20 games, seed `'testing'`. Full credit needs
+more than half the games won and an average winning score of at least 1600. The same script also evaluates
+variants that each remove one idea from the evaluation function (discussed in PDF §5, 4b). Runtime about 40 s.
+""", r"""
+run_script(5, str(REPO_ROOT / "scripts" / "pacman_eval_ablation.py"))
 """),
     ]),
 
@@ -298,8 +370,17 @@ positionally, as the handout requires.
         ("4b", "ExactInferenceWithSensorDeception.observe", "Apply the skew transform D' = D/(1+s²) + √(2/(1+s²)) before the usual emission update.",
          ["submission.ExactInferenceWithSensorDeception.observe"], ["4b-0-basic"]),
     ], experiments=[
-        ("drive", "Visual checks (optional, opens a Tk window)", r"""
-`drive.py` is not graded, but it is useful for the observations in 4b/4e (particle filter vs exact inference).
+        ("4d", "Exact inference vs particle filtering (Problem 4d)", r"""
+`drive.py` shows this comparison in a Tk window. `scripts/car_tracking_comparison.py` measures it headlessly
+on the Lombard map: a simulated car moves with the learned transition model, our car is parked mid-map, and
+both trackers receive the same noisy readings (20 runs × 40 steps). The table reports the distance from the most
+likely tile to the true car, the expected distance under the belief, how many tiles carry more than 1 % of the
+probability, and the time per step.
+""", r"""
+run_script(6, str(REPO_ROOT / "scripts" / "car_tracking_comparison.py"))
+"""),
+        ("drive", "Interactive visualisation (optional, opens a Tk window)", r"""
+Not graded and not run automatically. Uncomment a line to watch the trackers drive.
 """, r"""
 # run_script(6, "drive.py", "-a", "-p", "-d", "-k", "1", "-i", "exactInference")
 # run_script(6, "drive.py", "-a", "-d", "-k", "3", "-i", "particleFilter")
@@ -338,7 +419,8 @@ sub = load("submission")
         md(f"## {n}.{pid} — {name}\n\n**Task.** {task}\n\n{approach}")
         objs = ", ".join(s if s.startswith("submission.") else f"sub.{s}" for s in symbols).replace("submission.", "sub.")
         code(f"show_source({objs})")
-        code("run_grader({n}, {ids})".format(n=n, ids=", ".join(repr(t) for t in tests)))
+        if tests:   # some parts (e.g. Pac-Man 4a) have no grader test; they are checked in an experiment cell
+            code("run_grader({n}, {ids})".format(n=n, ids=", ".join(repr(t) for t in tests)))
     for eid, name, desc, body in a["experiments"]:
         md(f"## {n}.{eid} — {name}\n" + desc)
         code(body)
@@ -349,8 +431,24 @@ md(r"""
 ---
 # Conclusion
 
-_TODO: a short summary of results per assignment (tests passed, key experimental numbers), lessons learned,
-and how work was split across the team._
+| No. | Assignment | Local grader | Key results |
+|-----|------------|--------------|-------------|
+| 1 | Foundations | 8/8 | All six functions correct; hidden tests run without errors. |
+| 2 | Sentiment Classification | 9/9 | Hinge-loss SGD: 2.8 % train / 27.4 % validation error (limits 4 % / 30 %); best character n-gram n = 7 (27.1 %). |
+| 3 | Route Planning | 15.5/15.5 | UCS, waypoint state (location, covered tags) with $n\cdot2^k$ states, A\* with two admissible heuristics. |
+| 4 | Controlling MountainCar | 36/36 | Value iteration, model-based MC, tabular and Fourier Q-learning, constrained Q-learning; training curves in §4.train. |
+| 5 | Pac-Man | 12/12 | Minimax/alpha-beta reproduce the handout's root values; extra-credit evaluation function averages > 1600 on winning games. |
+| 6 | Bayesian Networks | 9/9 | Exact HMM filtering (observe + elapseTime) and the sensor-deception variant. |
+| 7 | From Language to Logic | 30/30 + 6/6 EC | Liar puzzle: Mark crashed the server; the odd/even theorem is entailed. |
+
+Hidden tests are run by the course autograder only; locally they run to check for crashes and timeouts. All
+written answers, derivations and discussions are in the PDF report, which uses the same numbering.
+
+**Lessons learned.** The same few ideas recur across the assignments: *modelling* (choosing the state, such as
+the waypoint memory or the discretised MountainCar), *reductions* (A\* as UCS, discounting as an absorbing state),
+and *uncertainty* (expectimax, HMM filtering). Getting the model right mattered more than the algorithm, and
+several ethics questions turned out to be modelling questions as well (selfish routing, reward hacking, sensor
+deception).
 """)
 
 nb = {"cells": cells,

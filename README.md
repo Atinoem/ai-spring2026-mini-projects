@@ -38,7 +38,7 @@ been executed and saved, it contains all of the work, so no separate notebooks h
 Each member works on their own assignment section and the team **joins the work at the end** by:
 
 1. making sure every `assignments/*/submission.py` is final and every `\todo` in `report/` is gone;
-2. running the whole notebook once (Kernel > Restart & Run All) and saving it;
+2. running the whole notebook once and saving it: `make run-notebook` (about 20 minutes), or Kernel > Restart & Run All in Jupyter;
 3. running `make package`, which rebuilds the PDF and writes
    `dist/CS221_Mini_Projects.ipynb` and `dist/CS221_Mini_Projects.pdf` (**the two files to upload**) plus a
    fallback zip with the helper code. The brief allows a zip only for teams that use helper files.
@@ -75,8 +75,8 @@ Do these once per computer, in order. Open a **new** terminal after each install
 | 1 | **Git** | version control | <https://git-scm.com/download/win> |
 | 2 | **MiKTeX** | builds the PDF report | <https://miktex.org/download> (the "basic" installer is enough) |
 | 3 | **GNU Make** | the `make ...` commands | `winget install ezwinports.make` |
-| 4 | **Miniconda** | Python 3.12, which the graders expect | `winget install Anaconda.Miniconda3`, then (new terminal) `~/miniconda3/Scripts/conda.exe init bash` in Git Bash, or `~\miniconda3\Scripts\conda.exe init powershell` in PowerShell |
-| 5 | Project environment | all Python packages + Jupyter kernel | `make env`, then `conda activate cs221` in every new terminal |
+| 4 | **Python 3.12** (official build) | the version the graders expect | `py install 3.12` (Python Install Manager), or `winget install Python.Python.3.12` |
+| 5 | Project environment | all Python packages + the `cs221` Jupyter kernel | `make env` (creates `.venv/` in the repo; the Makefile uses it automatically) |
 
 After installing MiKTeX, allow it to download missing LaTeX packages automatically. Without this, the first
 build stops and asks for them. You can also set this under MiKTeX Console > Settings > "Always install missing packages".
@@ -88,7 +88,7 @@ initexmf --set-config-value [MPM]AutoInstall=1
 Check that everything is in place:
 
 ```powershell
-git --version; make --version; pdflatex --version; conda --version
+git --version; make --version; pdflatex --version; py -V:3.12 --version
 ```
 
 If a command reports **`command not found`** right after installing it, the terminal still has the old PATH.
@@ -97,10 +97,19 @@ opening a new terminal tab is not enough. Git Bash shows `UCRT64` in its prompt,
 
 Notes:
 
-* **Use the conda Python.** The `python` already on PATH on some machines (e.g. Espressif's 3.11) is the wrong
-  version. Run `conda activate cs221` first; `python --version` must print 3.12.x.
-* If `osmium` (Route Planning) fails to install, see [`assignments/03_route/README.md`](assignments/03_route/README.md).
-* The Pac-Man and car-tracking GUIs need `tkinter`, which comes with the conda Python.
+* **Use the project's Python.** The `python` already on PATH on some machines (e.g. Espressif's 3.11) is the wrong
+  version. The Makefile picks `.venv` automatically. To run things by hand, use `.venv\Scripts\python.exe`
+  (PowerShell) or `.venv/Scripts/python.exe` (Git Bash), or activate the venv first.
+* **Windows Smart App Control.** On PCs where it is in enforcement mode, Windows refuses to run unsigned binaries.
+  That includes conda-forge's `python.exe` (so we do not use conda), pip's `.exe` launchers such as `jupyter.exe`
+  (so the Makefile always uses `python -m jupyterlab` / `python -m nbconvert`), and `osmium`'s compiled extension.
+  For the last one, `notebook/fallback/osmium` provides a pure-Python reader for the Stanford map that gives
+  identical results. The notebook helpers and `scripts/route_figures.py` switch to it automatically when the real
+  package cannot load. To run the Route grader by hand on such a PC, set
+  `PYTHONPATH=notebook/fallback` (absolute path) first.
+* If `osmium` fails to install, see [`assignments/03_route/README.md`](assignments/03_route/README.md); the
+  fallback above also covers this case.
+* The Pac-Man and car-tracking GUIs need `tkinter`, which comes with the official Python.
 * MiKTeX may print `major issue: So far, you have not checked for MiKTeX updates`. This is harmless; open
   MiKTeX Console > Updates once to clear it.
 * `make report-watch` (rebuild on save) uses `latexmk`, which needs Perl: `winget install StrawberryPerl.StrawberryPerl`.
@@ -132,7 +141,7 @@ Find what is left with: `git grep -n "\\todo" report/sections`.
 
 ## Working with the project
 
-1. **Pull first:** `git pull`, then `conda activate cs221`.
+1. **Pull first:** `git pull` (run `make env` once on a new computer).
 2. **Code** in `assignments/NN_name/submission.py`, only between `BEGIN_YOUR_CODE` / `END_YOUR_CODE`. Write clear
    docstrings and comments, because we are graded on readability.
 3. **Test:** `make test A=NN_name T=<test-id>`. Test IDs are listed in [`docs/ASSIGNMENTS.md`](docs/ASSIGNMENTS.md).

@@ -1,8 +1,9 @@
-# One environment for all seven assignments. Preferred: `make env` (see Makefile),
-# which only uses conda-forge. This file is the equivalent declarative form:
+# Alternative to `make env` for teammates who prefer conda. conda-forge only (no Anaconda ToS needed):
 #   conda env create -f environment.yml --override-channels -c conda-forge
 #   conda activate cs221
 #   python -m ipykernel install --user --name cs221 --display-name "Python 3.12 (cs221)"
+# Note: on PCs with Windows Smart App Control enforced, conda-forge's python.exe is blocked;
+# use `make env` (official signed Python 3.12 + .venv) there instead.
 name: cs221
 channels:
   - conda-forge

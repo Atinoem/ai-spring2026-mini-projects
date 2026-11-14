@@ -14,6 +14,11 @@ never imports an assignment module directly.  Instead each section calls
 
 The official graders call ``sys.exit`` and read ``sys.argv``, so
 :func:`run_grader` runs them in a child process with the notebook's interpreter.
+
+Route Planning reads the Stanford map with ``osmium``, whose compiled extension can be
+refused by Windows Smart App Control. If the real package cannot be imported, the
+pure-Python reader in ``fallback/osmium`` is put on the path instead (for the kernel and
+for every child process); it reproduces pyosmium's coordinates exactly.
 """
 
 from __future__ import annotations
@@ -30,6 +35,23 @@ from types import ModuleType
 REPO_ROOT = Path(__file__).resolve().parent.parent
 ASSIGNMENTS_ROOT = REPO_ROOT / "assignments"
 FIGURES_ROOT = REPO_ROOT / "report" / "figures"
+FALLBACK_DIR = Path(__file__).resolve().parent / "fallback"
+
+
+def _real_osmium_importable() -> bool:
+    """True if the compiled pyosmium package loads (it may be missing or blocked)."""
+    try:
+        importlib.import_module("osmium")
+        return True
+    except Exception:  # noqa: BLE001 - ImportError or an OS-level DLL block
+        for name in [m for m in sys.modules if m == "osmium" or m.startswith("osmium.")]:
+            del sys.modules[name]
+        return False
+
+
+OSMIUM_FALLBACK = not _real_osmium_importable()
+if OSMIUM_FALLBACK:
+    sys.path.insert(0, str(FALLBACK_DIR))   # ahead of site-packages, so it shadows the blocked package
 
 
 @dataclass(frozen=True)
@@ -117,6 +139,8 @@ def run_script(number: int, *args: str, timeout: int | None = 3600) -> int:
     """Run a starter script (``grader.py``, ``train.py``, ``pacman.py -q``...) in a child process."""
     a = ASSIGNMENTS[number]
     env = {**os.environ, "PYTHONIOENCODING": "utf-8", "MPLBACKEND": "Agg"}
+    if OSMIUM_FALLBACK:
+        env["PYTHONPATH"] = os.pathsep.join(filter(None, [env.get("PYTHONPATH"), str(FALLBACK_DIR)]))
     proc = subprocess.run([sys.executable, *args], cwd=a.path, env=env, capture_output=True,
                           text=True, encoding="utf-8", errors="replace", timeout=timeout)
     print(proc.stdout, end="")
@@ -138,6 +162,9 @@ def environment_report() -> None:
     if sys.version_info[:2] != (3, 12):
         print("  WARNING: CS221 graders expect Python 3.12 - see README.md 'Setup'.")
     for pkg in ("numpy", "matplotlib", "gymnasium", "pygame", "osmium", "plotly", "pandas"):
+        if pkg == "osmium" and OSMIUM_FALLBACK:
+            print(f"  {pkg:<11} compiled package unavailable -> using notebook/fallback/osmium (pure Python)")
+            continue
         try:
             mod = importlib.import_module(pkg)
             print(f"  {pkg:<11} {getattr(mod, '__version__', 'installed')}")

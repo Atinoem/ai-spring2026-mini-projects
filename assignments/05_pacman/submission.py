@@ -178,7 +178,31 @@ class MinimaxAgent(MultiAgentSearchAgent):
         """
 
         # BEGIN_YOUR_CODE (our solution is 22 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        num_agents = game_state.get_num_agents()
+
+        def successor_turn(agent: int, depth: int) -> Tuple[int, int]:
+            """Whose turn is next, and the depth left: one unit of depth is Pac-Man plus every
+            ghost moving once, so depth only decreases when play returns to Pac-Man."""
+            next_agent = (agent + 1) % num_agents
+            return next_agent, (depth - 1 if next_agent == self.index else depth)
+
+        def value(state: GameState, depth: int, agent: int) -> float:
+            """V_minmax(s, d): Pac-Man (agent 0) maximises, every ghost minimises."""
+            actions = state.get_legal_actions(agent)
+            if state.is_win() or state.is_lose() or not actions:
+                return state.get_score()                      # Utility(s) at end states
+            if depth == 0:
+                return self.evaluation_function(state)        # Eval(s) at the depth limit
+            next_agent, next_depth = successor_turn(agent, depth)
+            child_values = [value(state.generate_successor(agent, action), next_depth, next_agent)
+                            for action in actions]
+            return max(child_values) if agent == self.index else min(child_values)
+
+        # Root (a max node): choose Pac-Man's action whose successor has the highest value.
+        next_agent, next_depth = successor_turn(self.index, self.depth)
+        return max(game_state.get_legal_actions(self.index),
+                   key=lambda action: value(game_state.generate_successor(self.index, action),
+                                            next_depth, next_agent))
         # END_YOUR_CODE
 
 ######################################################################################
@@ -198,7 +222,55 @@ class AlphaBetaAgent(MultiAgentSearchAgent):
         """
 
         # BEGIN_YOUR_CODE (our solution is 43 lines of code, but don't worry if you deviate from this)
-        raise Exception("Not implemented yet")
+        num_agents = game_state.get_num_agents()
+
+        def successor_turn(agent: int, depth: int) -> Tuple[int, int]:
+            next_agent = (agent + 1) % num_agents
+            return next_agent, (depth - 1 if next_agent == self.index else depth)
+
+        def value(state: GameState, depth: int, agent: int, alpha: float, beta: float) -> float:
+            """Minimax value with alpha-beta pruning.
+
+            alpha = best value Pac-Man (max) can already guarantee on the path to the root,
+            beta  = best (lowest) value the ghosts (min) can already guarantee.
+            With several ghosts, consecutive min layers share the same beta: each ghost's
+            layer prunes as soon as its value drops to <= alpha, exactly like a single min node.
+            """
+            actions = state.get_legal_actions(agent)
+            if state.is_win() or state.is_lose() or not actions:
+                return state.get_score()
+            if depth == 0:
+                return self.evaluation_function(state)
+            next_agent, next_depth = successor_turn(agent, depth)
+
+            if agent == self.index:                      # max node
+                best = float('-inf')
+                for action in actions:
+                    best = max(best, value(state.generate_successor(agent, action),
+                                           next_depth, next_agent, alpha, beta))
+                    if best >= beta:                     # a min ancestor will never allow this
+                        return best
+                    alpha = max(alpha, best)
+                return best
+            else:                                        # min node (one ghost)
+                best = float('inf')
+                for action in actions:
+                    best = min(best, value(state.generate_successor(agent, action),
+                                           next_depth, next_agent, alpha, beta))
+                    if best <= alpha:                    # Pac-Man already has something better
+                        return best
+                    beta = min(beta, best)
+                return best
+
+        # Root (max node): evaluate children left to right, tightening alpha as we go.
+        next_agent, next_depth = successor_turn(self.index, self.depth)
+        alpha, best_action = float('-inf'), None
+        for action in game_state.get_legal_actions(self.index):
+            child_value = value(game_state.generate_successor(self.index, action),
+                                next_depth, next_agent, alpha, float('inf'))
+            if child_value > alpha or best_action is None:
+                alpha, best_action = child_value, action
+        return best_action
         # END_YOUR_CODE
 
 ######################################################################################
@@ -219,7 +291,31 @@ class ExpectimaxAgent(MultiAgentSearchAgent):
      """
 
      # BEGIN_YOUR_CODE (our solution is 20 lines of code, but don't worry if you deviate from this)
-     raise Exception("Not implemented yet")
+     num_agents = game_state.get_num_agents()
+
+     def successor_turn(agent: int, depth: int) -> Tuple[int, int]:
+         next_agent = (agent + 1) % num_agents
+         return next_agent, (depth - 1 if next_agent == self.index else depth)
+
+     def value(state: GameState, depth: int, agent: int) -> float:
+         """V_exptmax(s, d): Pac-Man maximises; each ghost picks a legal move uniformly at
+         random, so a ghost node's value is the *average* of its children's values."""
+         actions = state.get_legal_actions(agent)
+         if state.is_win() or state.is_lose() or not actions:
+             return state.get_score()
+         if depth == 0:
+             return self.evaluation_function(state)
+         next_agent, next_depth = successor_turn(agent, depth)
+         child_values = [value(state.generate_successor(agent, action), next_depth, next_agent)
+                         for action in actions]
+         if agent == self.index:
+             return max(child_values)
+         return sum(child_values) / len(child_values)
+
+     next_agent, next_depth = successor_turn(self.index, self.depth)
+     return max(game_state.get_legal_actions(self.index),
+                key=lambda action: value(game_state.generate_successor(self.index, action),
+                                         next_depth, next_agent))
      # END_YOUR_CODE
 
 ######################################################################################
@@ -232,7 +328,53 @@ def better_evaluation_function(current_game_state: GameState) -> float:
     """
 
     # BEGIN_YOUR_CODE (our solution is 16 lines of code, but don't worry if you deviate from this)
-    raise Exception("Not implemented yet")
+    # Start from the game score (it already rewards eating food, ghosts and winning) and add
+    # terms that make *progress* visible to a depth-2 search, which otherwise sees no
+    # difference between most moves:
+    #   - true maze distance to the nearest food (reciprocal, so being close matters most),
+    #   - remaining food and capsules (fewer is better),
+    #   - scared ghosts within reach are worth chasing (+200 points each when eaten),
+    #   - active ghosts are dangerous only when they are adjacent.
+    if current_game_state.is_win() or current_game_state.is_lose():
+        return current_game_state.get_score()
+
+    pacman_pos = current_game_state.get_pacman_position()
+    walls = current_game_state.get_walls()
+    food = current_game_state.get_food()
+
+    # Breadth-first search from Pac-Man gives real maze distances (walls included).
+    dist = {pacman_pos: 0}
+    frontier = [pacman_pos]
+    while frontier:
+        next_frontier = []
+        for (x, y) in frontier:
+            for nx, ny in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
+                if not walls[nx][ny] and (nx, ny) not in dist:
+                    dist[(nx, ny)] = dist[(x, y)] + 1
+                    next_frontier.append((nx, ny))
+        frontier = next_frontier
+
+    def maze_distance(pos) -> int:
+        return dist.get((int(pos[0]), int(pos[1])), 1000)
+
+    food_list = food.as_list()
+    nearest_food = min(maze_distance(f) for f in food_list) if food_list else 0
+    capsules = current_game_state.get_capsules()
+
+    value = current_game_state.get_score()
+    value += 10.0 / (nearest_food + 1)
+    value -= 4.0 * len(food_list)
+    value -= 20.0 * len(capsules)
+
+    for ghost in current_game_state.get_ghost_states():
+        d = maze_distance(ghost.get_position())
+        if ghost.scaredTimer > d:          # reachable before it recovers: hunt it
+            value += 200.0 / (d + 1)
+        elif d <= 1:                       # an active ghost next to us: very bad
+            value -= 500.0
+        else:
+            value -= 2.0 / d
+    return value
     # END_YOUR_CODE
 
 

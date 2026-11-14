@@ -1,15 +1,19 @@
 # Common tasks for the Group 13 CS221 mini projects.
 # Works from PowerShell, cmd or Git Bash (recipes only use commands valid in all of them).
 #
+#   make env             create .venv with Python 3.12 + all packages + the "cs221" Jupyter kernel (first time)
 #   make report          build report/report.pdf (needs only MiKTeX)
 #   make report-watch    rebuild the PDF on every save (needs Perl, see README)
 #   make report-clean    delete LaTeX build files (keeps report.pdf)
 #   make notebook        open the notebook in JupyterLab
+#   make run-notebook    execute the whole notebook in place (outputs saved; ~20 minutes)
 #   make test A=01_foundations [T=4a-0-basic]   run the official grader (all tests, or one)
 #   make package         build dist/ (the notebook + PDF to upload, plus the fallback zip)
-#   make env             create the conda environment (first-time setup)
 
-PYTHON ?= python
+# Use the project's virtual environment when it exists. Tools are always started as `python -m ...`:
+# Windows Smart App Control can block pip's generated .exe launchers (jupyter.exe etc.).
+VENV_PY := $(CURDIR)/.venv/Scripts/python.exe
+PYTHON ?= $(if $(wildcard .venv/Scripts/python.exe),"$(VENV_PY)",python)
 A ?= 01_foundations
 T ?=
 
@@ -17,16 +21,25 @@ T ?=
 # -aux-directory (MiKTeX) keeps .aux/.log/.toc in report/build/; the PDF lands in report/.
 LATEX = pdflatex -interaction=nonstopmode -halt-on-error -file-line-error -jobname=report -aux-directory=build
 
-.PHONY: help report report-watch report-clean notebook test package env
+.PHONY: help env report report-watch report-clean notebook run-notebook test package
 
 help:
+	@echo make env           - create .venv, install requirements, register the cs221 kernel
 	@echo make report        - build report/report.pdf
 	@echo make report-watch  - rebuild the PDF on every save, needs Perl
 	@echo make report-clean  - remove LaTeX build files
 	@echo make notebook      - open the notebook in JupyterLab
+	@echo make run-notebook  - execute the whole notebook and save its outputs
 	@echo make test A=02_sentiment T=3a-0-basic - run a grader
 	@echo make package       - build the Moodle upload files in dist/
-	@echo make env           - create the cs221 conda environment
+
+# Official (python.org / Python Install Manager) Python 3.12, which is signed and therefore allowed by
+# Smart App Control. `py -V:3.12` selects it through the Windows launcher.
+env:
+	py -V:3.12 -m venv .venv
+	"$(VENV_PY)" -m pip install --upgrade pip
+	"$(VENV_PY)" -m pip install -r requirements.txt
+	"$(VENV_PY)" -m ipykernel install --user --name cs221 --display-name "Python 3.12 (cs221)"
 
 report:
 	cd report && $(LATEX) main.tex && $(LATEX) main.tex
@@ -38,17 +51,13 @@ report-clean:
 	$(PYTHON) -c "import shutil; shutil.rmtree('report/build', ignore_errors=True)"
 
 notebook:
-	jupyter lab notebook/CS221_Mini_Projects.ipynb
+	$(PYTHON) -m jupyterlab notebook/CS221_Mini_Projects.ipynb
+
+run-notebook:
+	$(PYTHON) -m nbconvert --to notebook --execute --inplace --ExecutePreprocessor.kernel_name=cs221 --ExecutePreprocessor.timeout=3600 notebook/CS221_Mini_Projects.ipynb
 
 test:
 	cd assignments/$(A) && $(PYTHON) grader.py $(T)
 
 package: report
 	$(PYTHON) scripts/package_submission.py --name Group13_CS221_MiniProjects
-
-# conda-forge only (--override-channels): Anaconda's default channels require
-# accepting their Terms of Service, and we do not need them.
-env:
-	conda create -n cs221 --override-channels -c conda-forge python=3.12 pip -y
-	conda run -n cs221 python -m pip install -r requirements.txt
-	conda run -n cs221 python -m ipykernel install --user --name cs221 --display-name "Python 3.12 (cs221)"

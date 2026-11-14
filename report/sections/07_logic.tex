@@ -5,45 +5,91 @@
 % ============================================================================
 
 Problems 1--5 are programming problems (formulas written with \texttt{logic.py}). We list the formulas in
-mathematical notation so the report can be read on its own; the code and grader output are in the notebook.
+mathematical notation so the report can be read on its own; the code and grader output are in the notebook. As the
+handout notes, this assignment has no hidden tests: our formulas pass all 30 regular points and all 6 extra-credit
+points.
 
 % ----------------------------------------------------------------------------
 \subsection{Propositional logic}
 \codepart{7.1}
 \begin{enumerate}[label=(1\alph*)]
-  \item ``If it's summer and we're in California, then it doesn't rain.'' \quad \todo{formula}
-  \item ``It's wet if and only if it is raining or the sprinklers are on.'' \quad \todo{formula}
-  \item ``Either it's day or night (but not both).'' \quad \todo{formula}
+  \item ``If it's summer and we're in California, then it doesn't rain.'' \quad
+        $(\text{Summer}\wedge\text{California})\to\neg\text{Rain}$
+  \item ``It's wet if and only if it is raining or the sprinklers are on.'' \quad
+        $\text{Wet}\leftrightarrow(\text{Rain}\vee\text{Sprinklers})$
+  \item ``Either it's day or night (but not both).'' \quad
+        $(\text{Day}\vee\text{Night})\wedge\neg(\text{Day}\wedge\text{Night})$
 \end{enumerate}
 
 % ----------------------------------------------------------------------------
 \subsection{First-order logic}
 \codepart{7.2}
 \begin{enumerate}[label=(2\alph*)]
-  \item ``Every person has a parent.'' \quad \todo{formula}
-  \item ``At least one person has no children.'' \quad \todo{formula}
-  \item Define $\text{Father}(x,y)$ in terms of $\text{Male}$ and $\text{Parent}$. \quad \todo{formula}
-  \item Define $\text{Granddaughter}(x,y)$ in terms of $\text{Female}$ and $\text{Child}$. \quad \todo{formula}
+  \item ``Every person has a parent.'' \quad
+        $\forall x.\ \text{Person}(x)\to\exists y.\ \text{Parent}(x,y)$
+  \item ``At least one person has no children.'' \quad
+        $\exists x.\ \text{Person}(x)\wedge\neg\exists y.\ \text{Child}(x,y)$
+  \item $\text{Father}$ in terms of $\text{Male}$ and $\text{Parent}$ ($\text{Father}(x,y)$: $x$ has father $y$). \quad
+        $\forall x\,\forall y.\ \text{Father}(x,y)\leftrightarrow\bigl(\text{Male}(y)\wedge\text{Parent}(x,y)\bigr)$
+  \item $\text{Granddaughter}$ in terms of $\text{Female}$ and $\text{Child}$. \\
+        $\forall x\,\forall y.\ \text{Granddaughter}(x,y)\leftrightarrow
+         \bigl(\text{Female}(y)\wedge\exists z.\ \text{Child}(x,z)\wedge\text{Child}(z,y)\bigr)$
 \end{enumerate}
+The definitions in 2c and 2d are biconditionals, because a definition must also rule out every other father or
+granddaughter, not just license the intended ones.
 
 % ----------------------------------------------------------------------------
 \subsection{Liar puzzle}
 \codepart{7.3a}
 Suspects: John, Susan, Mark, Nicole. Mark: ``It wasn't me!'' John: ``It was Nicole!'' Nicole: ``It wasn't me, it
 was Susan!'' Susan: ``Nicole's a liar.'' Exactly one person tells the truth, and exactly one person crashed the server.
-
-\todo{the six formulas and the answer returned by \texttt{grader.py 3a-run}}
+With $T(x)$ for $\text{TellTruth}(x)$ and $S(x)$ for $\text{CrashedServer}(x)$, each statement is true exactly when its
+speaker tells the truth:
+\begin{align*}
+&T(\text{mark})\leftrightarrow\neg S(\text{mark}) \qquad
+ T(\text{john})\leftrightarrow S(\text{nicole}) \qquad
+ T(\text{nicole})\leftrightarrow\bigl(\neg S(\text{nicole})\wedge S(\text{susan})\bigr)\\
+&T(\text{susan})\leftrightarrow\neg T(\text{nicole}) \\
+&\exists x.\ T(x)\wedge\forall y.\ \bigl(T(y)\to x=y\bigr) \qquad\qquad
+ \exists x.\ S(x)\wedge\forall y.\ \bigl(S(y)\to x=y\bigr)
+\end{align*}
+Asking the knowledge base $S(\$x)$ (\texttt{grader.py 3a-run}) gives \textbf{Yes: mark}; No: john, nicole, susan.
+\emph{Mark crashed the server}, and Susan is the only one telling the truth. Reasoning by hand: Susan and Nicole
+cannot both lie (that would make Nicole truthful), so the single truth-teller is one of them. If it were Nicole,
+then Susan crashed the server and Mark's ``it wasn't me'' would also be true, which gives two truth-tellers. So Susan
+is truthful, Nicole and John lie (so neither Nicole nor Susan did it), and Mark lies, so it was Mark.
 
 % ----------------------------------------------------------------------------
 \subsection{Odd and even integers}
 \codepart{7.4a}
-\todo{the six axioms in mathematical notation and the result of \texttt{grader.py 4a-run}}
+With $\text{Succ}(x,y)$ for ``$x$'s successor is $y$'' and $\text{Larger}(x,y)$ for ``$x$ is larger than $y$'':
+\begin{enumerate}[label=(\arabic*),start=0,nosep]
+  \item $\forall x\,\exists y.\ \text{Succ}(x,y)\wedge\neg(x=y)\wedge\forall z.\ \bigl(\text{Succ}(x,z)\to y=z\bigr)$
+  \item $\forall x.\ \bigl(\text{Even}(x)\vee\text{Odd}(x)\bigr)\wedge\neg\bigl(\text{Even}(x)\wedge\text{Odd}(x)\bigr)$
+  \item $\forall x\,\forall y.\ \bigl(\text{Even}(x)\wedge\text{Succ}(x,y)\bigr)\to\text{Odd}(y)$
+  \item $\forall x\,\forall y.\ \bigl(\text{Odd}(x)\wedge\text{Succ}(x,y)\bigr)\to\text{Even}(y)$
+  \item $\forall x\,\forall y.\ \text{Succ}(x,y)\to\text{Larger}(y,x)$
+  \item $\forall x\,\forall y\,\forall z.\ \bigl(\text{Larger}(x,y)\wedge\text{Larger}(y,z)\bigr)\to\text{Larger}(x,z)$
+\end{enumerate}
+Model checking (\texttt{grader.py 4a-run}) answers \textbf{Yes} to the query
+$\forall x\,\exists y.\ \text{Even}(y)\wedge\text{Larger}(y,x)$: the theorem is entailed. Informally, if $x$ is odd
+its successor is even and larger; if $x$ is even, the successor of its successor is even and, by transitivity,
+larger than $x$.
 
 % ----------------------------------------------------------------------------
 \subsection{Semantic parsing (extra credit)}
 \codepart{7.5}
-Grammar rules for: \emph{every \$Noun \$Verb some \$Noun}; \emph{there is some \$Noun that every \$Noun \$Verb};
-\emph{if a \$Noun \$Verb a \$Noun then the former \$Verb the latter}.
+The three grammar rules build the following logical forms (arguments are the matched words, predicates are
+title-cased, so ``likes'' becomes $\text{Likes}$):
+\begin{itemize}[nosep]
+  \item \emph{every $N_1$ $V$ some $N_2$}: \quad $\forall x.\ N_1(x)\to\exists y.\ N_2(y)\wedge V(x,y)$
+  \item \emph{there is some $N_1$ that every $N_2$ $V$}: \quad $\exists y.\ N_1(y)\wedge\forall x.\ N_2(x)\to V(x,y)$
+  \item \emph{if a $N_1$ $V_1$ a $N_2$ then the former $V_2$ the latter}: \quad
+        $\forall x\,\forall y.\ \bigl(N_1(x)\wedge N_2(y)\wedge V_1(x,y)\bigr)\to V_2(x,y)$
+\end{itemize}
+In the third rule the indefinite ``a'' inside a conditional is read universally (``any person who likes any
+cat''), and ``the former''/``the latter'' are bound to the first and second variable. All 12 extra-credit tests
+pass.
 
 % ----------------------------------------------------------------------------
 \subsection{Explainability of logic-based systems}
@@ -57,21 +103,34 @@ have real consequences (e.g.\ someone being fired).
 return that could count as an explanation?}
 \expect{1--2 sentences.}
 \begin{solution}
-\todo{answer}
+It can return the \emph{proof}: the formulas it was given (the knowledge base) together with the chain of
+inference steps (resolution steps or derivations) that lead from them to the conclusion. A model-checking system can
+instead return the satisfying models, showing that in every world consistent with the facts Mark crashed the server
+and in no such world anyone else did. Both make every rule used to reach the verdict inspectable.
 \end{solution}
 
 \problempart{6b}{Why it may not be adequate}
 \question{Why might this explanation not be adequate? (Hint: model misspecification, or how the question is framed.)}
 \expect{1--2 sentences.}
 \begin{solution}
-\todo{answer}
+The proof is only as good as the premises: it shows that the conclusion follows \emph{from the facts we encoded},
+not that those facts are true or complete. In the puzzle, the premise ``exactly one person tells the truth'' is an
+unverified assumption, statements are forced into true/false although people can be mistaken rather than lying, and
+the question presupposes that one of four named suspects is guilty. If any of this framing is wrong, the system
+still produces a perfectly valid proof that blames the wrong person.
 \end{solution}
 
 \problempart{6c}{Which considerations are met}
 \question{Are any of the four explainability considerations met by the explanations a logic-based system produces?}
 \expect{2--4 sentences.}
 \begin{solution}
-\todo{answer}
+Partly. \emph{Assessing the fairness of rules} and \emph{contesting and correcting decisions} are well served,
+because every premise and inference step is explicit: an accused person can point to the specific premise they
+dispute (``I was not lying, I was mistaken''), and removing or correcting it changes the conclusion transparently.
+\emph{Respect} is only partly met: a formal proof is intelligible to experts but not automatically to the person
+affected, so it has to be translated into plain language. \emph{Ability to change behaviour} is weakly served
+for a one-off verdict like this, although for rule-based decisions in general (for example ``loans require
+$X$'') explicit rules do tell people what they could change to obtain a different outcome.
 \end{solution}
 
 % ----------------------------------------------------------------------------
@@ -84,7 +143,13 @@ Sound: $\{f: KB\vdash f\}\subseteq\{f: KB\vDash f\}$. \quad Complete: $\{f: KB\v
 complete, both or neither? Use examples and the definitions.}
 \expect{2--3 sentences for each property (4--6 in total).}
 \begin{solution}
-\todo{answer}
+\textbf{Not sound.} Soundness requires everything the system derives to be true (entailed by its knowledge).
+Hallucinations are exactly derivations outside $\{f:KB\vDash f\}$, for example a confidently cited research paper that
+does not exist or a wrong date for a historical event, so $\{f:KB\vdash f\}\not\subseteq\{f:KB\vDash f\}$.
+\textbf{Not complete either.} Completeness requires that every true statement can be derived, but GPT-3.5 fails to
+produce many entailed facts: it makes arithmetic errors on long multiplications, cannot know events after its
+training cut-off, and can answer a question correctly in one phrasing and incorrectly in another. Hence
+$\{f:KB\vDash f\}\not\subseteq\{f:KB\vdash f\}$, and GPT-3.5 is neither sound nor complete.
 \end{solution}
 
 \problempart{7b}{Safety-critical deployment}
@@ -92,7 +157,10 @@ complete, both or neither? Use examples and the definitions.}
 safety-critical setting, where acting on a false conclusion has severe consequences, and why?}
 \expect{2--3 sentences tied to the definitions.}
 \begin{solution}
-\todo{answer}
+System A. Soundness guarantees $\{f:KB\vdash f\}\subseteq\{f:KB\vDash f\}$: everything it concludes is true, so
+we never act on a false conclusion. Its incompleteness only means that it sometimes says ``I don't know'', which can be
+handled safely (fall back to a conservative default or a human). System B may derive false statements, which is
+exactly the failure mode the setting cannot tolerate.
 \end{solution}
 
 \problempart{7c}{With a separate verifier}
@@ -100,5 +168,8 @@ safety-critical setting, where acting on a false conclusion has severe consequen
 information as possible, which system would you choose, and why?}
 \expect{2--3 sentences tied to the definitions.}
 \begin{solution}
-\todo{answer}
+System B. Completeness guarantees $\{f:KB\vDash f\}\subseteq\{f:KB\vdash f\}$: every true statement is among its
+outputs, so nothing true is missed. Its unsoundness (some outputs are false) is acceptable because the verifier
+filters the hypotheses, and the combination of B plus the verifier ends up both complete and, after filtering,
+sound. System A would silently miss true facts that no verifier could recover.
 \end{solution}

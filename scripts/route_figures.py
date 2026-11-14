@@ -21,6 +21,14 @@ FIG_DIR = REPO_ROOT / "report" / "figures" / "03_route"
 os.chdir(ROUTE_DIR)                 # the starter code opens data/stanford.pbf relatively
 sys.path.insert(0, str(ROUTE_DIR))
 
+try:                                # compiled pyosmium may be missing or blocked (Smart App Control)
+    import osmium  # noqa: F401
+except Exception:  # noqa: BLE001
+    for _name in [m for m in sys.modules if m == "osmium" or m.startswith("osmium.")]:
+        del sys.modules[_name]
+    # pure-Python reader with identical results; must precede site-packages to shadow it
+    sys.path.insert(0, str(REPO_ROOT / "notebook" / "fallback"))
+
 import plotly.graph_objects as go   # noqa: E402
 
 import submission                   # noqa: E402

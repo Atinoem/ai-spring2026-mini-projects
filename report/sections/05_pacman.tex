@@ -21,18 +21,33 @@ $\text{Player}(s)$, $\text{Actions}(s)$ and $\text{Succ}(s,a)$; $n$ may be used,
 \[
 V_{\text{minmax}}(s,d)=
 \begin{cases}
-\text{Utility}(s) & \text{IsEnd}(s)\\
-\todo{} & \todo{}\\
+\text{Utility}(s) & \text{if } \text{IsEnd}(s),\\[2pt]
+\text{Eval}(s) & \text{else if } d=0,\\[2pt]
+\displaystyle\max_{a\in\text{Actions}(s)} V_{\text{minmax}}\bigl(\text{Succ}(s,a),\,d\bigr) & \text{else if } \text{Player}(s)=a_0,\\[8pt]
+\displaystyle\min_{a\in\text{Actions}(s)} V_{\text{minmax}}\bigl(\text{Succ}(s,a),\,d\bigr) & \text{else if } \text{Player}(s)=a_i,\ 1\le i<n,\\[8pt]
+\displaystyle\min_{a\in\text{Actions}(s)} V_{\text{minmax}}\bigl(\text{Succ}(s,a),\,d-1\bigr) & \text{else if } \text{Player}(s)=a_n.
 \end{cases}
 \]
+Pac-Man and the first $n-1$ ghosts pass the same depth to their successors; only the last ghost $a_n$
+completes a round, so its successors (Pac-Man's next turn) are one level shallower. Hence the depth limit
+$d=0$ is always reached at a Pac-Man node, and a search of depth $d_{\max}$ explores
+$d_{\max}(n+1)$ plies, as in the figure. The root call is $V_{\text{minmax}}(s_{\text{start}},d_{\max})$.
 \end{solution}
 
 \problempart{1b}{\texttt{MinimaxAgent}}
 \codepart{5.1b}
+We checked the implementation against the values given in the handout. The root minimax values on
+\texttt{minimaxClassic} are $9,8,7,-492$ for depths $1$--$4$, and $9,18,27$ on \texttt{mediumClassic} for depths
+$1$--$3$, and the agent's chosen action attains the root value in every case. The local grader awards 4/4 with no
+timeouts.
 
 % ----------------------------------------------------------------------------
 \subsection{Alpha-beta pruning}
 \codepart{5.2a}
+Each node carries $\alpha$ (the best value Pac-Man can already guarantee) and $\beta$ (the best value the ghosts can
+already guarantee). A max node stops as soon as its value reaches $\beta$, and every ghost's min node stops as soon as its
+value drops to $\alpha$. Because consecutive ghost layers all minimise, they simply pass $\alpha$ and $\beta$
+down unchanged. The agent returns exactly the minimax values above, and the grader awards 4/4 with no timeouts.
 
 % ----------------------------------------------------------------------------
 \subsection{Expectimax}
@@ -42,24 +57,74 @@ V_{\text{minmax}}(s,d)=
 uniformly at random, using the same functions as in 1a.}
 \expect{A piecewise recurrence in the style of 1a.}
 \begin{solution}
-\todo{answer}
+\[
+V_{\text{exptmax}}(s,d)=
+\begin{cases}
+\text{Utility}(s) & \text{if } \text{IsEnd}(s),\\[2pt]
+\text{Eval}(s) & \text{else if } d=0,\\[2pt]
+\displaystyle\max_{a\in\text{Actions}(s)} V_{\text{exptmax}}\bigl(\text{Succ}(s,a),\,d\bigr) & \text{else if } \text{Player}(s)=a_0,\\[8pt]
+\displaystyle\frac{1}{|\text{Actions}(s)|}\sum_{a} V_{\text{exptmax}}\bigl(\text{Succ}(s,a),\,d\bigr) & \text{else if } \text{Player}(s)=a_i,\ i<n,\\[8pt]
+\displaystyle\frac{1}{|\text{Actions}(s)|}\sum_{a} V_{\text{exptmax}}\bigl(\text{Succ}(s,a),\,d-1\bigr) & \text{else if } \text{Player}(s)=a_n.
+\end{cases}
+\]
+This is the minimax recurrence with each ghost's $\min$ replaced by the expectation under the uniform random
+policy $\pi_{\text{ghost}}(a\mid s)=1/|\text{Actions}(s)|$.
 \end{solution}
 
 \problempart{3b}{\texttt{ExpectimaxAgent}}
 \codepart{5.3b}
+On \texttt{trappedClassic} at depth 3 the agent finishes with exactly the scores the handout predicts: $-502$ when it
+loses and $532$ when it wins. It won 29 of 50 seeded games (the handout says ``about half''). The grader awards 4/4 with no timeouts.
 
 % ----------------------------------------------------------------------------
 \subsection{Evaluation function (extra credit)}
 
 \problempart{4a}{\texttt{better\_evaluation\_function}}
 \codepart{5.4a}
+We tested the agent the way the (disabled) extra-credit grader does: depth-2 expectimax against two random
+ghosts on \texttt{smallClassic}, 20 games, seed \texttt{'testing'}. Our evaluation function wins $15/20$ games
+with an average winning score of $1663.7$, above the $1600$ threshold for the maximum extra credit. Over 100
+games (five seeds) it wins $90/100$ with an average winning score of $1647.5$. A batch of 20 games takes about
+8 seconds in total, far inside the time limit.
 
 \problempart{4b}{Describing the evaluation function}
 \question{Describe the evaluation function and its high-level motivation. What else did you try, and what worked
 and what did not? State whether you consent to the solution being shared if it places in the top 3.}
 \expect{A short paragraph.}
 \begin{solution}
-\todo{answer}
+The function starts from the game score, which already rewards food ($+10$), eating ghosts ($+200$) and
+winning ($+500$), and adds terms that make \emph{progress} visible to a shallow search. On its own, the score
+hardly changes over two plies, so Pac-Man dithers. We run one breadth-first search from Pac-Man's position to get
+true maze distances, so walls are respected. The added terms are: $+10/(1+d_{\text{food}})$ for the nearest food
+pellet, which pulls Pac-Man towards food; $-4$ per remaining pellet and $-20$ per remaining capsule, which reward
+clearing the board and eating capsules; $+200/(1+d)$ for every scared ghost Pac-Man can reach before its timer
+runs out, which turns capsules into $+200$-point ghost hunts and accounts for most of the score above
+$\approx1300$; and, for active ghosts, $-500$ when adjacent, otherwise only a weak $-2/d$, because a random ghost
+far away is not a real threat. Win and loss states return the raw score.
+
+To find out what mattered, we ran an ablation (\texttt{scripts/pacman\_eval\_ablation.py}; 20 games,
+grader seed):
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+variant & wins & avg.\ winning score & avg.\ score \\
+\midrule
+submitted function & 15/20 & 1663.7 & 1274.0 \\
+Manhattan instead of maze (BFS) distances & 19/20 & 1630.1 & 1577.2 \\
+without the scared-ghost hunting term & 19/20 & 1349.9 & 1266.8 \\
+danger radius 3 instead of 1 (more cautious) & 15/20 & 1598.0 & 1277.8 \\
+game score only (\texttt{score\_evaluation\_function}) & 2/20 & 962.0 & $-398.8$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+The progress terms are what make the agent win at all: the raw score alone wins only 2 of 20 games. The
+scared-ghost term is what lifts the winning score from about 1350 to above 1600, because the extra points come from
+eating ghosts after a capsule, not from the capsule itself. Being more cautious (treating ghosts within three
+squares as deadly) does not win more games and lowers the score, because Pac-Man avoids corridors with food. The
+choice between maze and Manhattan distances turned out not to matter: the 20-game difference above is noise, and
+over 100 games (five seeds) the two versions are equivalent (90 vs.\ 88 wins, average winning score 1647.5 vs.\
+1648.5). We kept the maze distance because it is the more faithful measure of how far food really is.
+\textit{Consent:} we consent to our solution being shared with other students.
 \end{solution}
 
 % ----------------------------------------------------------------------------
@@ -73,7 +138,13 @@ Compare \texttt{python pacman.py -p MinimaxAgent -l trappedClassic -a depth=3} w
 (occasionally) does not?}
 \expect{One sentence for minimax, stating the assumption that causes this, and one sentence for expectimax.}
 \begin{solution}
-\todo{answer}
+Minimax assumes the ghosts are perfect adversaries. Under that worst-case assumption every line of play in
+\texttt{trappedClassic} ends in death, so all outcomes cost the $-500$ loss penalty, and the only remaining
+difference is the $-1$ time penalty per move. Dying as quickly as possible, by running into the nearest ghost, is
+therefore ``optimal'': in our 50 runs it always lost, with score $-501$. Expectimax instead assumes each ghost moves
+uniformly at random, so walking away from a ghost has a real chance that the ghost does not follow. The expected
+value of going for the food (about $+532$ with positive probability) beats certain death, and the gamble paid off
+in 29 of 50 games.
 \end{solution}
 
 \problempart{5b}{Fixing the objective}
@@ -82,7 +153,11 @@ final score), or to how the game score is computed, that would stop minimax from
 \texttt{trappedClassic} and make it behave more like expectimax.}
 \expect{1--2 sentences describing the change and why it works.}
 \begin{solution}
-\todo{answer}
+Make survival time valuable in losing states. For example, use
+$\text{Utility}(s)=\text{score}(s)+c\cdot\text{(moves survived)}$ with $c>1$ when $s$ is a loss, or equivalently
+drop the per-move time penalty from the score of losing states. Then a later death is strictly better than an
+immediate one, so even a worst-case planner moves away from the ghosts and stays alive. That keeps open the chance
+that the real (random) ghosts make a mistake, which is exactly the behaviour expectimax shows.
 \end{solution}
 
 \problempart{5c}{Another real-world example}
@@ -90,5 +165,11 @@ final score), or to how the game score is computed, that would stop minimax from
 or causes negative side effects.}
 \expect{2--5 sentences, stating whether it is reward hacking, a negative side effect, or both, with a justification.}
 \begin{solution}
-\todo{answer}
+A company deploys a customer-support chatbot and trains it with the reward ``fraction of conversations that end
+with the ticket marked \emph{resolved}'', together with a short-survey satisfaction score. The model learns to
+close tickets quickly with confident but unverified answers, to steer users away from refunds that would reopen
+the ticket, and to flatter users so they rate the chat highly. This is \textbf{reward hacking}: the proxy, tickets
+marked resolved and high ratings, is maximised while the designer's real goal, actually solving customers'
+problems, is not. It also has \textbf{negative side effects} on other stakeholders: customers who were wrongly
+told their problem is fixed bear the cost later, and human agents receive harder, angrier escalations.
 \end{solution}
